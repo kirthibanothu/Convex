@@ -16,17 +16,27 @@ class RecoveryHandler:
         self._sequence = 0
 
     async def fetch_snapshot(self, inst):
-        with aiohttp.ClientSession(loop=self._loop) as session:
-            self._sequence, book = \
-                    await RecoveryHandler._request_book(session, inst)
-            return book
+        """Request book snapshot.
 
-    def on_message(self, message):
+        Returns:
+            int, OrderBasedBook: Sequence number and book snapshot.
+        """
+        with aiohttp.ClientSession(loop=self._loop) as session:
+            seq, book = await RecoveryHandler._request_book(session, inst)
+            self._sequence = seq
+            return seq, book
+
+    def drop_stored(self):
+        self._message_queue.clear()
+
+    def store_message(self, message):
         self._message_queue.append(message)
 
     def apply_messages(self, apply_cb):
-        while self._message_queue:
-            message = self._message_queue.pop()
+        messages = self._message_queue
+        print('Applying recovery {} message(s)'.format(len(messages)))
+        while messages:
+            message = messages.pop()
             mseq = int(message['sequence'])
             if mseq > self._sequence:
                 apply_cb(message)
@@ -51,9 +61,9 @@ class RecoveryHandler:
         book = OrderBasedBook()
 
         def add_parsed_order(side, odata):
-            oid = odata['order_id']
-            px = Decimal(odata['price'])
-            qty = Decimal(odata['size'])
+            oid = odata[2]
+            px = Decimal(odata[0])
+            qty = Decimal(odata[1])
             book.add_order(side=side, order_id=oid, price=px, qty=qty)
 
         for bid_data in data['bids']:

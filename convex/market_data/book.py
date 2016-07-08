@@ -42,20 +42,25 @@ class Book:
     def asks(self):
         return self._asks
 
-    def show(self, concise=True):
+    def show(self, max_depth=5):
         out = ''
         DEFAULT_LVL = Level(price='', qty='', orders='')
-        BID_FMT = '{lvl.orders:3} {lvl.qty:10.5} {lvl.price:10.5}'
-        ASK_FMT = '{lvl.price:10.5} {lvl.qty:10.5} {lvl.orders:3}'
-        for bid, ask in itertools.zip_longest(
+        BID_FMT = '{lvl.orders:3}  {lvl.qty:10} {lvl.price:10}'
+        ASK_FMT = '{lvl.price:10} {lvl.qty:10}  {lvl.orders:3}'
+
+        level_iter = itertools.zip_longest(
                 self._bids, self._asks,
-                fillvalue=DEFAULT_LVL):
+                fillvalue=DEFAULT_LVL)
+
+        for depth, (bid, ask) in enumerate(level_iter):
             side_str = BID_FMT.format(lvl=bid) + ' | ' \
                     + ASK_FMT.format(lvl=ask)
-            if concise:
+            if max_depth == 0:
                 return '({}) '.format(self._book_id) + side_str
-            out += side_str
+            out += side_str + '\n'
+            if depth >= max_depth:
+                break
         return out
 
     def __repr__(self):
-        return self.show(concise=True)
+        return self.show(max_depth=0)
