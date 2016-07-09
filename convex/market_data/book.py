@@ -43,7 +43,6 @@ class Book:
         return self._asks
 
     def show(self, max_depth=5):
-        out = ''
         DEFAULT_LVL = Level(price='', qty='', orders='')
         BID_FMT = '{lvl.orders:3}  {lvl.qty:15} {lvl.price:12}'
         ASK_FMT = '{lvl.price:<12} {lvl.qty:<15}  {lvl.orders:<3}'
@@ -52,10 +51,17 @@ class Book:
                 self._bids, self._asks,
                 fillvalue=DEFAULT_LVL)
 
+        out = ''
+        if max_depth > 1:
+            out += 'book_id={}, bid_depth={}, ask_depth={}\n'.format(
+                    self._book_id,
+                    len(self._bids),
+                    len(self._asks))
+
         for depth, (bid, ask) in enumerate(level_iter):
             side_str = BID_FMT.format(lvl=bid) + ' | ' \
                     + ASK_FMT.format(lvl=ask)
-            if max_depth == 0:
+            if max_depth <= 1:
                 return '({}) '.format(self._book_id) + side_str
             out += side_str + '\n'
             if depth >= max_depth:

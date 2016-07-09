@@ -6,9 +6,7 @@ from convex.common.app import AsyncApp
 from convex.exchanges.gdax.market_data_feed import Gateway as GdaxWsGateway
 
 async def on_update(update):
-    for trade in update.trades:
-        print(trade)
-    print('{}:\n{}'.format(update.instrument, update.book.show(5)))
+    print(update.show(5))
 
 
 def main():

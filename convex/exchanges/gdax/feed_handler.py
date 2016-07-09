@@ -17,22 +17,39 @@ class FeedHandler:
                 'change': self._handle_change_message,
                 'done': self._handle_done_message,
                 'match': self._handle_match_message,
-                'received': lambda m: False
+                'received': lambda m: None
         }
         self._trades = []
-        self._pending_update = False
+        self._pending_book_id = 0
 
     def recover(self, sequence, book):
         self._sequence = sequence
         self._book = book
+        self._set_pending_book_id()
+
+    @property
+    def _pending_update(self):
+        return self._pending_book_id != 0 or self._trades
+
+    def _fetch_pending_book_id(self):
+        if self._pending_book_id != 0:
+            book_id = self._pending_book_id
+            self._pending_book_id = 0
+            return book_id
+        return self._trades[0].book_id
+
+    def _fetch_pending_trades(self):
+        trades = self._trades.copy()
+        self._trades.clear()
+        return trades
 
     def make_update(self):
         if not self._pending_update:
             return None
-        book = self._book.make_book(self._sequence)
-        self._pending_update = False
-        trades = self._trades.copy()
-        self._trades.clear()
+
+        book_id = self._fetch_pending_book_id()
+        book = self._book.make_book(book_id=book_id)
+        trades = self._fetch_pending_trades()
         return Update(
                 instrument=self._instrument, book=book,
                 trades=trades)
@@ -46,25 +63,22 @@ class FeedHandler:
         if not cb:
             log.error('Unhandled message type:', message)
             return
+        cb(message)
 
-        updated = cb(message)
-        self._pending_update = self._pending_update or updated
-
-    @staticmethod
-    def _parse_side(side):
-        return Side.BUY if side == 'buy' else Side.SELL
+    def _set_pending_book_id(self):
+        self._pending_book_id = self._sequence
 
     def _handle_open_message(self, message):
         self._book.add_order(
-                side=FeedHandler._parse_side(message['side']),
+                side=Side.parse(message['side']),
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 qty=make_qty(message['remaining_size']))
-        return True
+        self._set_pending_book_id()
 
     @staticmethod
     def _parse_trade(message):
-        resting_side = FeedHandler._parse_side(message['side'])
+        resting_side = Side.parse(message['side'])
         return Trade(
                 aggressor=resting_side.opposite,
                 price=make_price(message['price']),
@@ -79,24 +93,28 @@ class FeedHandler:
                 price=trade.price,
                 trade_qty=trade.qty)
         self._trades.append(trade)
-        return True
+        self._set_pending_book_id()
 
     def _handle_done_message(self, message):
         price = message.get('price', None)
         if not price:
             # Market orders do not have a price field
-            return False
-        return self._book.remove_order(
-                side=FeedHandler._parse_side(message['side']),
+            return
+        removed = self._book.remove_order(
+                side=Side.parse(message['side']),
                 order_id=message['order_id'],
                 price=make_price(price))
+        if removed:
+            self._set_pending_book_id()
 
     def _handle_change_message(self, message):
         if 'new_funds' in message:
             # Changed market orders use "funds" fields.
-            return False
-        return self._book.change_order(
-                side=FeedHandler._parse_side(message['side']),
+            return
+        changed = self._book.change_order(
+                side=Side.parse(message['side']),
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 new_qty=make_qty(message['new_size']))
+        if changed:
+            self._set_pending_book_id()
