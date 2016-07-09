@@ -21,7 +21,7 @@ class Gateway:
             self.subscribe(instrument)
         cbs.add(on_update)
 
-    async def _publish_update(self, update):
+    def _publish_update(self, update):
         """Publish update to subscribers."""
         cbs = [cb(update) for cb in self._callbacks[update.instrument]]
         asyncio.ensure_future(*cbs, loop=self._loop)

@@ -2,9 +2,12 @@ import collections
 from decimal import Decimal
 
 import aiohttp
+import logbook
 
 from market_data import OrderBasedBook
 from common.side import Side
+
+log = logbook.Logger('GDAX')
 
 
 class RecoveryHandler:
@@ -34,7 +37,7 @@ class RecoveryHandler:
 
     def apply_messages(self, apply_cb):
         messages = self._message_queue
-        print('Applying recovery {} message(s)'.format(len(messages)))
+        log.info('Applying recovery {} message(s)', len(messages))
         while messages:
             message = messages.pop()
             mseq = int(message['sequence'])
