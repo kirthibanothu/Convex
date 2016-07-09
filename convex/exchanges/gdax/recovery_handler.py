@@ -3,9 +3,8 @@ import collections
 import aiohttp
 import logbook
 
-from market_data import OrderBasedBook
-from common.side import Side
-from common.price import make_price, make_qty
+from ...market_data import OrderBasedBook
+from ...common import Side, make_price, make_qty
 
 log = logbook.Logger('GDAX')
 
@@ -39,7 +38,6 @@ class RecoveryHandler:
         messages = self._message_queue
         applied_count = 0
 
-        log.debug('Applying messages since sequence={}', self._sequence)
         while messages:
             message = messages.popleft()
             mseq = int(message['sequence'])

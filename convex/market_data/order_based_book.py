@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from sortedcontainers import SortedDict
 
-from common.side import Side
+from convex.common.side import Side
 
 from .book import Book
 

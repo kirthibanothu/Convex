@@ -1,9 +1,8 @@
 import logbook
 
-from market_data import Update, Trade, OrderBasedBook
+from ...market_data import Update, Trade, OrderBasedBook
 
-from common.side import Side
-from common.price import make_price, make_qty
+from ...common import Side, make_price, make_qty
 
 log = logbook.Logger('GDAX')
 

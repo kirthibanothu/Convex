@@ -4,7 +4,7 @@ import asyncio
 import logbook
 import websockets
 
-from market_data.gateway import Gateway as BaseGateway
+from ...market_data.gateway import Gateway as BaseGateway
 
 from .recovery_handler import RecoveryHandler
 from .feed_handler import FeedHandler
