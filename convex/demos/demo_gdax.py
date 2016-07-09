@@ -1,38 +1,24 @@
 #!/usr/bin/env python3 -m demos.demo_gdax
 
-import asyncio
-import signal
-
 from logbook import TimedRotatingFileHandler
 
 # from exchanges.gdax.market_data import Gateway as GdaxMdGateway
 from exchanges.gdax.market_data_feed import Gateway as GdaxWsGateway
 
+from common.app import AsyncApp
 
 async def on_update(update):
     print('{}:\n{}'.format(update.instrument, update.book.show(5)))
 
 
-def on_sigint(loop):
-    print('Stopping')
-    for task in asyncio.Task.all_tasks(loop=loop):
-        task.cancel()
-
-
 def main():
-    loop = asyncio.get_event_loop()
-    loop.add_signal_handler(signal.SIGINT, on_sigint, loop)
+    app = AsyncApp()
 
     # gw = GdaxMdGateway(loop=loop)
-    gw = GdaxWsGateway(loop=loop)
+    gw = GdaxWsGateway(loop=app.loop)
     gw.register('BTC-USD', on_update)
-    try:
-        loop.run_until_complete(gw.launch())
-    except asyncio.CancelledError:
-        print('Tasks have been canceled')
-    finally:
-        loop.stop()
-        loop.close()
+
+    app.run_loop(gw.launch())
 
 log_fmt = \
         '[{record.time:%Y-%m-%d %H:%M:%S.%f}]' + \

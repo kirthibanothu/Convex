@@ -1,11 +1,11 @@
 import collections
-from decimal import Decimal
 
 import aiohttp
 import logbook
 
 from market_data import OrderBasedBook
 from common.side import Side
+from common.price import make_price, make_qty
 
 log = logbook.Logger('GDAX')
 
@@ -37,7 +37,7 @@ class RecoveryHandler:
 
     def apply_messages(self, apply_cb):
         messages = self._message_queue
-        log.info('Applying recovery {} message(s)', len(messages))
+        log.info('Applying {} recovery message(s)', len(messages))
         while messages:
             message = messages.pop()
             mseq = int(message['sequence'])
@@ -65,8 +65,8 @@ class RecoveryHandler:
 
         def add_parsed_order(side, odata):
             oid = odata[2]
-            px = Decimal(odata[0])
-            qty = Decimal(odata[1])
+            px = make_price(odata[0])
+            qty = make_qty(odata[1])
             book.add_order(side=side, order_id=oid, price=px, qty=qty)
 
         for bid_data in data['bids']:

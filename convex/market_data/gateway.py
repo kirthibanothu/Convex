@@ -7,6 +7,10 @@ class Gateway:
         self._loop = loop if loop else asyncio.get_event_loop()
         self._callbacks = defaultdict(set)  # instrument -> {callbacks}
 
+    @property
+    def loop(self):
+        return self._loop
+
     async def launch(self):
         """Start running gateway."""
         raise NotImplementedError()

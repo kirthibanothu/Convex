@@ -19,10 +19,10 @@ class Gateway(BaseGateway):
 
     def __init__(self, loop=None):
         BaseGateway.__init__(self, loop)
-        self._recovery_handler = RecoveryHandler(loop=self._loop)
+        self._recovery_handler = RecoveryHandler(loop=self.loop)
         self._recovery_task = None
         self._in_sequence = 0
-        self._message_queue = asyncio.Queue(loop=self._loop)
+        self._message_queue = asyncio.Queue(loop=self.loop)
 
     def subscribe(self, instrument):
         assert(instrument == 'BTC-USD')
@@ -40,7 +40,7 @@ class Gateway(BaseGateway):
         await asyncio.gather(
                 self._poll_endpoint(Gateway.WS_ENDPOINT),
                 self._consume_messages(),
-                loop=self._loop)
+                loop=self.loop)
 
     def _on_message(self, message):
         if not self._check_sequence(message):
@@ -61,13 +61,14 @@ class Gateway(BaseGateway):
             log.warn('Canceled consume_messages')
 
     async def _consume_messages_impl(self):
-        pop_wait = self._message_queue.get
-        pop_nowait = self._message_queue.get_nowait
-        while self._loop.is_running():
-            message = await pop_wait()
+        get_nowait = self._message_queue.get_nowait
+        is_empty = self._message_queue.empty
+        while self.loop.is_running():
+            log.debug('{} queued message(s)', self._message_queue.qsize())
+            message = await self._message_queue.get()
             self._on_message(message)
-            while not self._message_queue.empty():
-                message = pop_nowait()
+            while not is_empty:
+                message = get_nowait()
                 self._on_message(message)
             update = self._inst_handler.make_update()
             if update:
@@ -75,15 +76,18 @@ class Gateway(BaseGateway):
 
     async def _poll_endpoint(self, endpoint):
         try:
-            async with websockets.connect(endpoint, loop=self._loop) as sock:
-                await self._send_subscribe(sock)
-                while self._loop.is_running():
-                    data = await sock.recv()
-                    self._message_queue.put_nowait(json.loads(data))
-        except websockets.exceptions.InvalidState as e:
+            async with websockets.connect(endpoint, loop=self.loop) as sock:
+                try:
+                    await self._send_subscribe(sock)
+                    while self.loop.is_running():
+                        data = await sock.recv()
+                        self._message_queue.put_nowait(json.loads(data))
+                except asyncio.CancelledError:
+                    log.warn('Canceled poll_endpoint')
+        except websockets.exceptions.InvalidState:
             log.exception()
-        except asyncio.CancelledError:
-            log.warn('Canceled poll_endpoint')
+        except:
+            log.exception()
 
     async def _send_subscribe(self, sock):
         message = json.dumps(
@@ -107,17 +111,17 @@ class Gateway(BaseGateway):
 
     def _handle_gap(self, expected, received):
         if self._recovery_task:
-            log.warn('Gap detected during recovery: ' +
-                     'expected={}, received={}', expected, received)
+            log.notice('Gap detected during recovery: ' +
+                       'expected={}, received={}', expected, received)
             self._recovery_task.cancel()
         else:
-            log.warn('Gap detected: expected={}, received={}',
-                     expected, received)
+            log.notice('Gap detected: expected={}, received={}',
+                       expected, received)
         self._clear_queue()
         self._recovery_handler.drop_stored()
         self._recovery_task = asyncio.ensure_future(
                 self._start_recovery(),
-                loop=self._loop)
+                loop=self.loop)
 
     async def _start_recovery(self):
         snapshot = await self._recovery_handler.fetch_snapshot(
