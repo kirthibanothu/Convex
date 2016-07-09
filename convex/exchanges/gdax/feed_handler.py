@@ -1,6 +1,6 @@
 import logbook
 
-from market_data import Update, OrderBasedBook
+from market_data import Update, Trade, OrderBasedBook
 
 from common.side import Side
 from common.price import make_price, make_qty
@@ -20,6 +20,7 @@ class FeedHandler:
                 'match': self._handle_match_message,
                 'received': lambda m: False
         }
+        self._trades = []
         self._pending_update = False
 
     def recover(self, sequence, book):
@@ -31,7 +32,11 @@ class FeedHandler:
             return None
         book = self._book.make_book(self._sequence)
         self._pending_update = False
-        return Update(instrument=self._instrument, book=book)
+        trades = self._trades.copy()
+        self._trades.clear()
+        return Update(
+                instrument=self._instrument, book=book,
+                trades=trades)
 
     def handle_message(self, message):
         sequence = int(message['sequence'])
@@ -46,27 +51,35 @@ class FeedHandler:
         updated = cb(message)
         self._pending_update = self._pending_update or updated
 
-    def _parse_side(self, side):
+    @staticmethod
+    def _parse_side(side):
         return Side.BUY if side == 'buy' else Side.SELL
 
     def _handle_open_message(self, message):
         self._book.add_order(
-                side=self._parse_side(message['side']),
+                side=FeedHandler._parse_side(message['side']),
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 qty=make_qty(message['remaining_size']))
         return True
 
-    def _handle_match_message(self, message):
-        resting_side = self._parse_side(message['side'])
-        resting_oid = message['maker_order_id']
-        self._book.match_order(
-                side=resting_side,
-                order_id=resting_oid,
+    @staticmethod
+    def _parse_trade(message):
+        resting_side = FeedHandler._parse_side(message['side'])
+        return Trade(
+                aggressor=resting_side.opposite,
                 price=make_price(message['price']),
-                trade_qty=make_qty(message['size']))
-        # TODO Add trade to update.
-        log.info('Trade! {side} -- {size} @ {price}'.format(**message))
+                qty=make_qty(message['size']),
+                book_id=int(message['sequence']))
+
+    def _handle_match_message(self, message):
+        trade = FeedHandler._parse_trade(message)
+        self._book.match_order(
+                side=trade.aggressor.opposite,
+                order_id=message['maker_order_id'],
+                price=trade.price,
+                trade_qty=trade.qty)
+        self._trades.append(trade)
         return True
 
     def _handle_done_message(self, message):
@@ -75,7 +88,7 @@ class FeedHandler:
             # Market orders do not have a price field
             return False
         return self._book.remove_order(
-                side=self._parse_side(message['side']),
+                side=FeedHandler._parse_side(message['side']),
                 order_id=message['order_id'],
                 price=make_price(price))
 
@@ -84,7 +97,7 @@ class FeedHandler:
             # Changed market orders use "funds" fields.
             return False
         return self._book.change_order(
-                side=self._parse_side(message['side']),
+                side=FeedHandler._parse_side(message['side']),
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 new_qty=make_qty(message['new_size']))

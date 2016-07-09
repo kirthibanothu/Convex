@@ -64,7 +64,7 @@ class Gateway(BaseGateway):
         get_nowait = self._message_queue.get_nowait
         is_empty = self._message_queue.empty
         while self.loop.is_running():
-            log.debug('{} queued message(s)', self._message_queue.qsize())
+            # log.debug('{} queued message(s)', self._message_queue.qsize())
             message = await self._message_queue.get()
             self._on_message(message)
             while not is_empty:

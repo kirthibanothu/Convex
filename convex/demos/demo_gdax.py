@@ -8,7 +8,9 @@ from exchanges.gdax.market_data_feed import Gateway as GdaxWsGateway
 from common.app import AsyncApp
 
 async def on_update(update):
-    print('{}:\n{}'.format(update.instrument, update.book.show(5)))
+    for trade in update.trades:
+        print(trade)
+    print('{}:\n{}'.format(update.instrument, update.book.show(0)))
 
 
 def main():
@@ -21,9 +23,9 @@ def main():
     app.run_loop(gw.launch())
 
 log_fmt = \
-        '[{record.time:%Y-%m-%d %H:%M:%S.%f}]' + \
-        '[{record.level_name}] ' + \
-        '{record.channel}: ' + \
+        '{record.time:%Y-%m-%d %H:%M:%S.%f} - ' + \
+        '{record.module} - ' + \
+        '{record.level_name} - ' + \
         '{record.message}'
 
 if __name__ == '__main__':

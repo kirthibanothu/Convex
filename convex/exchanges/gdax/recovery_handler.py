@@ -37,12 +37,17 @@ class RecoveryHandler:
 
     def apply_messages(self, apply_cb):
         messages = self._message_queue
-        log.info('Applying {} recovery message(s)', len(messages))
+        applied_count = 0
+
+        log.debug('Applying messages since sequence={}', self._sequence)
         while messages:
-            message = messages.pop()
+            message = messages.popleft()
             mseq = int(message['sequence'])
             if mseq > self._sequence:
+                log.debug('Applying sequence={}', mseq)
                 apply_cb(message)
+                applied_count += 1
+        log.info('Applied {} recovery message(s)', applied_count)
 
     @staticmethod
     async def _request_book(sess, inst):
