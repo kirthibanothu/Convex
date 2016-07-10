@@ -25,6 +25,10 @@ class InstrumentHandler:
                 'received': lambda m: False
         }
 
+    @property
+    def instrument(self):
+        return self._instrument
+
     def recover(self, sequence, book):
         self._sequence = sequence
         self._book = book

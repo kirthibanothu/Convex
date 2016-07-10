@@ -10,12 +10,25 @@ log = logbook.Logger('MD')
 
 class Subscriber:
     def __init__(self, instrument, gateway, update_cache_size=2):
-        gateway.register(instrument, self._on_update)
+        self._instrument = instrument
         self._update_event = asyncio.Event(loop=gateway.loop)
+        gateway.register(instrument, self._on_update)
         assert(update_cache_size >= 1)
         self._updates = collections.deque(maxlen=update_cache_size)
         self._update_sequence = 0
         self._cached_trades = []
+
+    @property
+    def cached_updates(self):
+        return reversed(self._updates)
+
+    @property
+    def update_cache_size(self):
+        return self._updates.maxlen
+
+    @property
+    def instrument(self):
+        return self._instrument
 
     def has_update(self):
         return self._update_event.is_set()

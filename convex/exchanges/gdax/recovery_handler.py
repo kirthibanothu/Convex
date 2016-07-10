@@ -17,14 +17,15 @@ class RecoveryHandler:
         self._message_queue = collections.deque()
         self._sequence = 0
 
-    async def fetch_snapshot(self, inst):
+    async def fetch_snapshot(self, product_id):
         """Request book snapshot.
 
         Returns:
             int, OrderBasedBook: Sequence number and book snapshot.
         """
         with aiohttp.ClientSession(loop=self._loop) as session:
-            seq, book = await RecoveryHandler._request_book(session, inst)
+            seq, book = await RecoveryHandler._request_book(session,
+                                                            product_id)
             self._sequence = seq
             return seq, book
 
@@ -48,7 +49,7 @@ class RecoveryHandler:
         log.info('Applied {} recovery message(s)', applied_count)
 
     @staticmethod
-    async def _request_book(sess, inst):
+    async def _request_book(sess, product_id):
         """Request full book.
 
         Returns:
@@ -56,7 +57,7 @@ class RecoveryHandler:
         """
         ORDER_BOOK_EP = RecoveryHandler.ENDPOINT + '/products/{}/book'
         BOOK_LEVEL = 3
-        endpoint = ORDER_BOOK_EP.format(inst)
+        endpoint = ORDER_BOOK_EP.format(product_id)
         async with sess.get(endpoint, params={'level': BOOK_LEVEL}) as res:
             data = await res.json()
             seq = int(data['sequence'])
