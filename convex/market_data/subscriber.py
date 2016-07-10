@@ -1,38 +1,59 @@
+import asyncio
 import collections
-import itertools
+
+import logbook
+
+from .update import Update
+
+log = logbook.Logger('MD')
 
 
 class Subscriber:
-    def __init__(self, gateway, instrument, on_update, update_cache_size=2):
-        self._gateway = gateway
-        self._gateway.register(instrument, self._on_update)
-        self._instrument = instrument
-        self._update_cb = on_update
+    def __init__(self, instrument, gateway, update_cache_size=2):
+        gateway.register(instrument, self._on_update)
+        self._update_event = asyncio.Event(loop=gateway.loop)
+        assert(update_cache_size >= 1)
+        self._updates = collections.deque(maxlen=update_cache_size)
+        self._update_sequence = 0
+        self._cached_trades = []
 
-        # Build initial update cache
-        updates_iter = itertools.repeat(None, update_cache_size)
-        self._update_cache = collections.deque(updates_iter,
-                                               maxlen=update_cache_size)
+    def has_update(self):
+        return self._update_event.is_set()
 
-    def __del__(self):
-        self._gateway.unregister(self._instrument, self._on_update)
+    async def fetch(self):
+        if self.has_update():
+            return self._fetch_pending_update()
+        await self._update_event.wait()
+        return self._fetch_pending_update()
 
-    @property
-    def instrument(self):
-        return self._instrument
+    def fetch_nowait(self):
+        if self.has_update():
+            return self._fetch_pending_update()
+        return None
 
-    def _on_update(self, update):
-        self._update_cache.append(update)
-        self._update_cb(update)
+    def _fetch_pending_update(self):
+        assert(self.has_update())
+        self._update_event.clear()
+        latest_update = self._updates[-1]
+        full_update = Update.replace_trades(latest_update,
+                                            trades=self._cached_trades.copy())
+        self._cached_trades.clear()
+        return full_update
 
-    @property
-    def update_cache(self):
-        return self._update_cache
+    def _check_ordering(self, update):
+        if not self._updates:
+            return True
+        prev_book_id = self._updates[-1].book_id
+        if prev_book_id <= update.book_id:
+            return True
+        log.warn('Invalid book ID ordering, prev={}, last={}',
+                 prev_book_id, update.book_id)
+        return False
 
-    @property
-    def latest_update(self):
-        return self._update_cache[-1]
-
-    @property
-    def last_update(self):
-        return self._update_cache[-2]
+    async def _on_update(self, update):
+        if not self._check_ordering(update):
+            return
+        self._cached_trades.extend(update.trades)
+        self._update_sequence += 1
+        self._updates.append(update)
+        self._update_event.set()

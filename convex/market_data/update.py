@@ -6,6 +6,15 @@ from .status import Status
 class Update:
     __slots__ = '_instrument', '_book', '_trades', '_status', '_timestamp'
 
+    @staticmethod
+    def replace_trades(update, trades):
+        return Update(
+                instrument=update.instrument,
+                book=update.book,
+                trades=trades,
+                status=update.status,
+                timestamp=update.timestamp)
+
     def __init__(self,
                  instrument,
                  book,
