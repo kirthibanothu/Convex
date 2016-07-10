@@ -23,8 +23,21 @@ class Instrument:
     def make_symbol(self, seperator=DEFAULT_SEPERATOR):
         return seperator.join([self._base_currency, self._quote_currency])
 
+    def __eq__(self, other):
+        return self._key() == other._key()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self._key())
+
     def __repr__(self):
         return self.make_symbol()
+
+    def _key(self):
+        """Return key for comparison and hashing."""
+        return self._base_currency, self._quote_currency
 
 
 BTC_USD = Instrument(base_currency='BTC', quote_currency='USD')

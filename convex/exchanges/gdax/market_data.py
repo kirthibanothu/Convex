@@ -8,6 +8,9 @@ import asyncio
 import logbook
 import websockets
 
+from ..exchange_id import ExchangeID
+
+from ...common.instrument import BTC_USD
 from ...market_data.gateway import Gateway as BaseGateway
 
 from .recovery_handler import RecoveryHandler
@@ -30,6 +33,10 @@ class Gateway(BaseGateway):
         self._message_queue = asyncio.Queue(loop=self.loop)
 
     @property
+    def exchange_id(self):
+        return ExchangeID.GDAX
+
+    @property
     def _instrument(self):
         return self._inst_handler.instrument if self._inst_handler else None
 
@@ -38,8 +45,7 @@ class Gateway(BaseGateway):
         return make_gdax_symbol(self._instrument)
 
     def subscribe(self, instrument):
-        symbol = make_gdax_symbol(instrument)
-        if symbol != 'BTC-USD':
+        if instrument != BTC_USD:
             raise ValueError('Unsupported instrument: {}'.format(instrument))
         self._inst_handler = InstrumentHandler(instrument)
 
@@ -77,7 +83,7 @@ class Gateway(BaseGateway):
     async def _consume_messages_impl(self):
         get_nowait = self._message_queue.get_nowait
         is_empty = self._message_queue.empty
-        while self.loop.is_running():
+        while True:
             # log.debug('{} queued message(s)', self._message_queue.qsize())
             message = await self._message_queue.get()
             self._on_message(message)
@@ -93,7 +99,7 @@ class Gateway(BaseGateway):
             async with websockets.connect(endpoint, loop=self.loop) as sock:
                 try:
                     await self._send_subscribe(sock)
-                    while self.loop.is_running():
+                    while True:
                         data = await sock.recv()
                         self._message_queue.put_nowait(json.loads(data))
                 except asyncio.CancelledError:
