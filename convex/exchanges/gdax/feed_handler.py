@@ -1,6 +1,6 @@
 import logbook
 
-from ...market_data import Update, Trade, OrderBasedBook
+from ...market_data import Status, Update, Trade, OrderBasedBook
 
 from ...common import Side, make_price, make_qty
 
@@ -36,7 +36,9 @@ class FeedHandler:
             book_id = self._pending_book_id
             self._pending_book_id = 0
             return book_id
-        return self._trades[0].book_id
+        if self._trades:
+            return self._trades[0].book_id
+        return self._sequence
 
     def _fetch_pending_trades(self):
         trades = self._trades.copy()
@@ -51,8 +53,17 @@ class FeedHandler:
         book = self._book.make_book(book_id=book_id)
         trades = self._fetch_pending_trades()
         return Update(
-                instrument=self._instrument, book=book,
-                trades=trades)
+                instrument=self._instrument,
+                book=book,
+                trades=trades,
+                status=Status.OK)
+
+    def make_gapped_update(self):
+        return Update(
+                instrument=self._instrument,
+                book=self._book.make_book(book_id=self._sequence),
+                trades=self._fetch_pending_trades(),
+                status=Status.GAPPED)
 
     def handle_message(self, message):
         sequence = int(message['sequence'])

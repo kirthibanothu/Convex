@@ -38,8 +38,10 @@ class _OrderBasedLevel:
 
     def match_order(self, order_id, trade_qty):
         self._orders[order_id] -= trade_qty
-        if self._orders[order_id] == 0:
+        resting_qty = self._orders[order_id]
+        if resting_qty <= 0:
             del self._orders[order_id]
+        assert(resting_qty >= 0)
 
     def change_order(self, order_id, new_qty):
         if order_id in self._orders:
@@ -66,7 +68,9 @@ class OrderBasedBook:
 
     def match_order(self, side, order_id, price, trade_qty):
         lvl = self._fetch_level(side, price)
-        return lvl.match_order(order_id, trade_qty)
+        lvl.match_order(order_id, trade_qty)
+        if lvl.empty:
+            self._remove_level(side, price)
 
     def remove_order(self, side, order_id, price):
         lvl = self._fetch_level(side, price)

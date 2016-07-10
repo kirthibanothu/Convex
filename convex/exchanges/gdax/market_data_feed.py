@@ -122,6 +122,8 @@ class Gateway(BaseGateway):
         self._recovery_task = asyncio.ensure_future(
                 self._start_recovery(),
                 loop=self.loop)
+        update = self._inst_handler.make_gapped_update()
+        self._publish_update(update)
 
     async def _start_recovery(self):
         snapshot = await self._recovery_handler.fetch_snapshot(

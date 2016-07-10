@@ -19,14 +19,18 @@ class Update:
         return self._book
 
     @property
+    def book_id(self):
+        return self._book.book_id
+
+    @property
     def is_ok(self):
         return self._status == Status.OK
 
-    def trades_before(self, book_id):
-        return filter(lambda t: t.book_id < book_id, self._trades)
+    def trades_before_book(self):
+        return filter(lambda t: t.book_id <= self.book_id, self._trades)
 
-    def trades_after(self, book_id):
-        return filter(lambda t: t.book_id >= book_id, self._trades)
+    def trades_after_book(self):
+        return filter(lambda t: t.book_id > self.book_id, self._trades)
 
     @property
     def trades(self):
@@ -37,13 +41,12 @@ class Update:
         return self._status
 
     def show(self, max_depth=5):
-        book_id = self._book.book_id
         res = '{}: {}\n'.format(self._instrument, self._status)
-        trades_before = self.trades_before(book_id)
-        trades_after = self.trades_after(book_id)
+        trades_before = self.trades_before_book()
+        trades_after = self.trades_after_book()
         for trade in trades_before:
-            res += '{}\n'.format(trade)
+            res += 'before: {}\n'.format(trade)
         res += self._book.show(max_depth)
         for trade in trades_after:
-            res += '\n{}'.format(trade)
+            res += '\nafter: {}'.format(trade)
         return res
