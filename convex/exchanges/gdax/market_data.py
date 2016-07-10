@@ -62,7 +62,7 @@ class Gateway(BaseGateway):
         try:
             await self._consume_messages_impl()
         except asyncio.CancelledError:
-            log.warn('Canceled consume_messages')
+            log.notice('Canceled consume_messages')
 
     async def _consume_messages_impl(self):
         get_nowait = self._message_queue.get_nowait
@@ -87,7 +87,7 @@ class Gateway(BaseGateway):
                         data = await sock.recv()
                         self._message_queue.put_nowait(json.loads(data))
                 except asyncio.CancelledError:
-                    log.warn('Canceled poll_endpoint')
+                    log.notice('Canceled poll_endpoint')
         except websockets.exceptions.InvalidState:
             log.exception()
         except:
