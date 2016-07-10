@@ -1,14 +1,26 @@
+import datetime as dt
+
 from .status import Status
 
 
 class Update:
-    __slots__ = '_instrument', '_book', '_trades', '_status'
+    __slots__ = '_instrument', '_book', '_trades', '_status', '_timestamp'
 
-    def __init__(self, instrument, book, trades=None, status=None):
+    def __init__(self,
+                 instrument,
+                 book,
+                 trades=None,
+                 status=None,
+                 timestamp=None):
         self._instrument = instrument
         self._book = book
         self._trades = trades if trades else []
         self._status = status if status else Status.UNKNOWN
+        self._timestamp = timestamp if timestamp else dt.datetime.now()
+
+    @property
+    def timestamp(self):
+        return self._timestamp
 
     @property
     def instrument(self):
@@ -41,7 +53,10 @@ class Update:
         return self._status
 
     def show(self, max_depth=5):
-        res = '{}: {}\n'.format(self._instrument, self._status)
+        res = '{}: {} {}\n'.format(
+                self._instrument,
+                self._status,
+                self._timestamp)
         trades_before = self.trades_before_book()
         trades_after = self.trades_after_book()
         for trade in trades_before:

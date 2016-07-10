@@ -1,4 +1,5 @@
 import logbook
+import dateutil.parser as du_parser
 
 from ...market_data import Status, Update, Trade, OrderBasedBook
 
@@ -7,20 +8,22 @@ from ...common import Side, make_price, make_qty
 log = logbook.Logger('GDAX')
 
 
-class FeedHandler:
+class InstrumentHandler:
     def __init__(self, instrument):
         self._instrument = instrument
         self._book = OrderBasedBook()
         self._sequence = 0
+        self._timestamp_str = ''
+        self._trades = []
+        self._pending_book_id = 0
+
         self._message_handlers = {
                 'open': self._handle_open_message,
                 'change': self._handle_change_message,
                 'done': self._handle_done_message,
                 'match': self._handle_match_message,
-                'received': lambda m: None
+                'received': lambda m: False
         }
-        self._trades = []
-        self._pending_book_id = 0
 
     def recover(self, sequence, book):
         self._sequence = sequence
@@ -30,6 +33,14 @@ class FeedHandler:
     @property
     def _pending_update(self):
         return self._pending_book_id != 0 or self._trades
+
+    @property
+    def _timestamp(self):
+        try:
+            return du_parser.parse(self._timestamp_str)
+        except ValueError:
+            log.warn('Cannot parse timestamp "{}"', self._timestamp_str)
+            return None
 
     def _fetch_pending_book_id(self):
         if self._pending_book_id != 0:
@@ -56,25 +67,32 @@ class FeedHandler:
                 instrument=self._instrument,
                 book=book,
                 trades=trades,
-                status=Status.OK)
+                status=Status.OK,
+                timestamp=self._timestamp)
 
     def make_gapped_update(self):
         return Update(
                 instrument=self._instrument,
                 book=self._book.make_book(book_id=self._sequence),
                 trades=self._fetch_pending_trades(),
-                status=Status.GAPPED)
+                status=Status.GAPPED,
+                timestamp=self._timestamp)
 
     def handle_message(self, message):
         sequence = int(message['sequence'])
         if sequence <= self._sequence:
             return
         self._sequence = sequence
-        cb = self._message_handlers.get(message['type'], None)
-        if not cb:
-            log.error('Unhandled message type:', message)
-            return
-        cb(message)
+        self._timestamp_str = message['time']
+
+        message_type = message['type']
+        try:
+            cb = self._message_handlers[message_type]
+            updated_book = cb(message)
+            if updated_book:
+                self._set_pending_book_id()
+        except KeyError:
+            log.exception('Unhandled message type: {}', message)
 
     def _set_pending_book_id(self):
         self._pending_book_id = self._sequence
@@ -85,7 +103,7 @@ class FeedHandler:
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 qty=make_qty(message['remaining_size']))
-        self._set_pending_book_id()
+        return True
 
     @staticmethod
     def _parse_trade(message):
@@ -97,14 +115,14 @@ class FeedHandler:
                 book_id=int(message['sequence']))
 
     def _handle_match_message(self, message):
-        trade = FeedHandler._parse_trade(message)
+        trade = InstrumentHandler._parse_trade(message)
         self._book.match_order(
                 side=trade.aggressor.opposite,
                 order_id=message['maker_order_id'],
                 price=trade.price,
                 trade_qty=trade.qty)
         self._trades.append(trade)
-        self._set_pending_book_id()
+        return True
 
     def _handle_done_message(self, message):
         price = message.get('price', None)
@@ -115,8 +133,7 @@ class FeedHandler:
                 side=Side.parse(message['side']),
                 order_id=message['order_id'],
                 price=make_price(price))
-        if removed:
-            self._set_pending_book_id()
+        return removed
 
     def _handle_change_message(self, message):
         if 'new_funds' in message:
@@ -127,5 +144,4 @@ class FeedHandler:
                 order_id=message['order_id'],
                 price=make_price(message['price']),
                 new_qty=make_qty(message['new_size']))
-        if changed:
-            self._set_pending_book_id()
+        return changed
