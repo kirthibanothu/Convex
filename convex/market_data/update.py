@@ -69,10 +69,10 @@ class Update:
         trades_before = self.trades_before_book()
         trades_after = self.trades_after_book()
         res += self._book.show(max_depth)
-        res += 'Before book\n'
+        res += 'Before book -\n'
         for trade in trades_before:
             res += '{}\n'.format(trade)
-        res += 'After book:\n'
+        res += 'After book -\n'
         for trade in trades_after:
             res += '{}\n'.format(trade)
 
