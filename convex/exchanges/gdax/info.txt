@@ -1,0 +1,41 @@
+Source: https://docs.gdax.com/
+
+Matching Engine:
+    Type:
+        Continuous first come, first serve book.
+        Executed in price-time priority.
+
+    Self Trade Prevention:
+        DECREMENT AND CANCEL
+        CANCEL OLDEST
+        CANCEL NEWEST
+        CANCEL BOTH
+
+    Price Improvement:
+        Orders are matched against existing order book orders at the price of
+        the order on the book, not at the price of the taker order.
+
+    Orders can be partially filled.
+
+Fees:
+    Maker: 0%
+    Taker: 0.25%
+
+    There is an existing SELL order for 5 BTC at 100 USD on the order book.
+    You enter a BUY order for 7 BTC at 100 USD.
+    5 BTC of your BUY order are immediately matched and you are charged the
+    taker fee because you are taking liquidity from the order book.
+    The remaining 2 BTC of your order are now sitting on the BID side of the
+    order book. A SELL order for 2 BTC at 100 USD arrives and matches against
+    your 2 BTC BUY order.
+    In this case you provided liquidity and are not charged any fees.
+
+Timestamp: ISO 8601 (Microsecond precision)
+
+Numbers: Decimal numbers are returned as strings.
+
+Rate Limits:
+    REST API:
+        Public Endpoints: 3 requests per second (up to 6 for burst)
+        Private Endpoints: 5 requests per second (up to 10 for burst)
+

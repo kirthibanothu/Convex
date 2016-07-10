@@ -4,3 +4,5 @@ sortedcontainers == 1.5.2
 ujson == 1.35
 uvloop == 0.4.33
 websockets == 3.1
+python-dateutil == 2.5.3
+requests == 2.10.0
