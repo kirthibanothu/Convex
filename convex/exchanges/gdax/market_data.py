@@ -12,6 +12,7 @@ from ...market_data.gateway import Gateway as BaseGateway
 
 from .recovery_handler import RecoveryHandler
 from .instrument_handler import InstrumentHandler
+from .common import make_symbol as make_gdax_symbol
 
 log = logbook.Logger('GDAX')
 
@@ -28,9 +29,18 @@ class Gateway(BaseGateway):
         self._in_sequence = 0
         self._message_queue = asyncio.Queue(loop=self.loop)
 
+    @property
+    def _instrument(self):
+        return self._inst_handler.instrument if self._inst_handler else None
+
+    @property
+    def _product_id(self):
+        return make_gdax_symbol(self._instrument)
+
     def subscribe(self, instrument):
-        assert(instrument == 'BTC-USD')
-        self._instrument = instrument
+        symbol = make_gdax_symbol(instrument)
+        if symbol != 'BTC-USD':
+            raise ValueError('Unsupported instrument: {}'.format(instrument))
         self._inst_handler = InstrumentHandler(instrument)
 
     @property
@@ -95,7 +105,7 @@ class Gateway(BaseGateway):
 
     async def _send_subscribe(self, sock):
         message = json.dumps(
-                {'type': 'subscribe', 'product_id': self._instrument})
+                {'type': 'subscribe', 'product_id': self._product_id})
         log.info('Subscribing: {}', message)
         await sock.send(message)
 
@@ -131,7 +141,7 @@ class Gateway(BaseGateway):
 
     async def _start_recovery(self):
         snapshot = await self._recovery_handler.fetch_snapshot(
-                self._instrument)
+                self._product_id)
         seq, book = snapshot
         log.info('Exiting recovery at {}', seq)
         self._inst_handler.recover(seq, book)

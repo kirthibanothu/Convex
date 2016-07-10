@@ -62,15 +62,18 @@ class Update:
         return self._status
 
     def show(self, max_depth=5):
-        res = '{}: {} {}\n'.format(
+        res = '{}: {} - {}\n'.format(
                 self._instrument,
                 self._status,
                 self._timestamp)
         trades_before = self.trades_before_book()
         trades_after = self.trades_after_book()
-        for trade in trades_before:
-            res += 'before: {}\n'.format(trade)
         res += self._book.show(max_depth)
+        res += 'Before book\n'
+        for trade in trades_before:
+            res += '{}\n'.format(trade)
+        res += 'After book:\n'
         for trade in trades_after:
-            res += '\nafter: {}'.format(trade)
+            res += '{}\n'.format(trade)
+
         return res

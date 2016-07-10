@@ -1,14 +1,31 @@
 class Instrument:
-    __slots__ = '_symbol', '_venue_data'
+    DEFAULT_SEPERATOR = '/'
 
-    def __init__(self, symbol, venue_data=None):
-        self._symbol = symbol
-        self._venue_data = venue_data if venue_data else dict()
+    __slots__ = '_base_currency', '_quote_currency', '_exchange_data'
+
+    def __init__(self, base_currency, quote_currency, exchange_data=None):
+        self._base_currency = base_currency.upper()
+        self._quote_currency = quote_currency.upper()
+        self._exchange_data = exchange_data if exchange_data else dict()
 
     @property
-    def symbol(self):
-        return self._symbol
+    def base_currency(self):
+        return self._base_currency
 
     @property
-    def venue_data(self):
-        return self._venue_data
+    def quote_currency(self):
+        return self._quote_currency
+
+    @property
+    def exchange_data(self):
+        return self._exchange_data
+
+    def make_symbol(self, seperator=DEFAULT_SEPERATOR):
+        return seperator.join([self._base_currency, self._quote_currency])
+
+    def __repr__(self):
+        return self.make_symbol()
+
+
+BTC_USD = Instrument(base_currency='BTC', quote_currency='USD')
+LTC_USD = Instrument(base_currency='LTC', quote_currency='USD')

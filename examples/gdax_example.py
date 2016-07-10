@@ -3,6 +3,7 @@
 import asyncio
 
 from convex.common.app import AsyncApp
+from convex.common.instrument import BTC_USD
 
 from convex.market_data import Subscriber as MDSubscriber
 import convex.exchanges.gdax as gdax
@@ -12,14 +13,14 @@ async def poll_subscriber(sub):
     while True:
         update = await sub.fetch()
         print(('-' * 32) + '\n{}'.format(update.show(5)))
-        await asyncio.sleep(30)
+        await asyncio.sleep(15)
 
 
 def main():
     app = AsyncApp(name='gdax_example')
 
     gw = gdax.MDGateway(loop=app.loop)
-    sub = MDSubscriber('BTC-USD', gateway=gw)
+    sub = MDSubscriber(BTC_USD, gateway=gw)
 
     app.run_loop(
             gw.launch(),
