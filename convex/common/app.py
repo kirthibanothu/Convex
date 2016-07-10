@@ -2,6 +2,9 @@ import asyncio
 import signal
 
 from logbook import TimedRotatingFileHandler
+import uvloop
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 class AsyncApp:

@@ -1,4 +1,5 @@
 aiohttp == 0.21.6
 Logbook == 1.0.0
 sortedcontainers == 1.5.2
+uvloop == 0.4.33
 websockets == 3.1
