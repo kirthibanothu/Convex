@@ -64,9 +64,9 @@ class OrderBasedBook:
         lvl.add_order(order_id, qty)
 
     def change_order(self, side, order_id, price, new_qty):
-        """Change quantity for oder.
+        """Change quantity for order.
 
-        Returns
+        Returns True if order exists in book, false otherwise.
         """
         lvl = self._fetch_level(side, price)
         return lvl.change_order(order_id, new_qty)
