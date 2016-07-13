@@ -35,12 +35,37 @@ class Book:
         return self._book_id
 
     @property
+    def depth(self):
+        """Book depth."""
+        return max(self.bid_depth, self.ask_depth)
+
+    @property
+    def bid_depth(self):
+        """Number of bid levels."""
+        return len(self._bids)
+
+    @property
+    def ask_depth(self):
+        """Number of ask levels."""
+        return len(self._asks)
+
+    @property
     def bids(self):
         return self._bids
 
     @property
     def asks(self):
         return self._asks
+
+    @property
+    def best_bid(self):
+        """Best bid level."""
+        return next(iter(self._bids))
+
+    @property
+    def best_ask(self):
+        """Best ask level."""
+        return next(iter(self._asks))
 
     def show(self, max_depth=5):
         DEFAULT_LVL = Level(price='', qty='', orders='')
