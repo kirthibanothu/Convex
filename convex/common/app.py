@@ -34,15 +34,31 @@ class AsyncApp:
             tasks = asyncio.gather(*coros)
             try:
                 log.info('Running event loop with {} task(s)', len(coros))
-                self._loop.run_until_complete(tasks)
+                asyncio.ensure_future(tasks, loop=self._loop)
+                self._loop.run_forever()
             except asyncio.CancelledError:
                 log.notice('Tasks have been canceled')
+            except:
+                log.exception()
             finally:
-                log.notice('Stopping event loop')
-                self._loop.stop()
+                self._stop_loop()
+
+    def _stop_loop(self):
+        if self._loop.is_running():
+            log.notice('Stopping event loop')
+            self._loop.stop()
+        else:
+            log.notice('Event loop already stopped')
+
+    def _cancel_all(self):
+        log.notice('Cancelling tasks')
+        task_count = 0
+        for task in asyncio.Task.all_tasks(loop=self._loop):
+            task_count += 1
+            task.cancel()
+        log.notice('Cancelled {} task(s)', task_count)
 
     def _on_sigint(self):
         log.notice('Caught {sig.name}:{sig.value}', sig=signal.SIGINT)
-        log.notice('Cancelling tasks')
-        for task in asyncio.Task.all_tasks(loop=self._loop):
-            task.cancel()
+        self._stop_loop()
+        self._cancel_all()
