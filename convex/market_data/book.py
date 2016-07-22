@@ -11,14 +11,17 @@ class Level:
 
     @property
     def price(self):
+        """Price"""
         return self._price
 
     @property
     def qty(self):
+        """Quantity"""
         return self._qty
 
     @property
     def orders(self):
+        """Number of orders"""
         return self._orders
 
 
@@ -32,6 +35,11 @@ class Book:
 
     @property
     def book_id(self):
+        """Book ID.
+
+        Indicates ordering of events pertaining to a single instrument on a
+        given exchange.
+        """
         return self._book_id
 
     @property
@@ -51,10 +59,12 @@ class Book:
 
     @property
     def bids(self):
+        """Bid levels."""
         return self._bids
 
     @property
     def asks(self):
+        """Ask levels."""
         return self._asks
 
     @property
@@ -68,6 +78,11 @@ class Book:
         return next(iter(self._asks))
 
     def show(self, max_depth=5):
+        """Return visual represention of book.
+
+        Args:
+            max_depth (int): Number of levels to display.
+        """
         DEFAULT_LVL = Level(price='', qty='', orders='')
         BID_FMT = '{lvl.orders:3}  {lvl.qty:15} {lvl.price:12}'
         ASK_FMT = '{lvl.price:<12} {lvl.qty:<15}  {lvl.orders:<3}'

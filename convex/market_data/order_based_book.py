@@ -4,10 +4,10 @@ from sortedcontainers import SortedDict
 
 from convex.common.side import Side
 
-from .book import Book
+from .book import Book, Level
 
 
-class _OrderBasedLevel:
+class OrderBasedLevel(Level):
     __slots__ = '_price', '_orders'
 
     def __init__(self, price):
@@ -32,12 +32,18 @@ class _OrderBasedLevel:
         return len(self._orders)
 
     def orders_view(self):
+        """Return list of orders in insertion order."""
         return self._orders
 
     def add_order(self, order_id, qty):
+        """Add order to level."""
         self._orders[order_id] = qty
 
     def match_order(self, order_id, trade_qty):
+        """Match resting order.
+
+        Remove ``trade_qty`` from resting order
+        """
         self._orders[order_id] -= trade_qty
         resting_qty = self._orders[order_id]
         if resting_qty <= 0:
@@ -45,12 +51,20 @@ class _OrderBasedLevel:
         assert(resting_qty >= 0)
 
     def change_order(self, order_id, new_qty):
+        """Reduce order quantity.
+
+        Return True if order was in level, false otherwise.
+        """
         if order_id in self._orders:
             self._orders[order_id] = new_qty
             return True
         return False
 
     def remove_order(self, order_id):
+        """Remove order.
+
+        Return True if order was in level, false otherwise.
+        """
         return self._orders.pop(order_id, None) is not None
 
 
@@ -89,7 +103,7 @@ class OrderBasedBook:
         self._asks.clear()
 
     def make_book(self, book_id):
-        """Return market_data.Book for OrderBasedBook."""
+        """Return ``market_data.Book`` for OrderBasedBook."""
         return Book(
                 book_id=book_id,
                 bids=list(self._bids.values()),
@@ -109,5 +123,5 @@ class OrderBasedBook:
     @staticmethod
     def _get_level(price, levels):
         if price not in levels:
-            levels[price] = _OrderBasedLevel(price=price)
+            levels[price] = OrderBasedLevel(price=price)
         return levels[price]

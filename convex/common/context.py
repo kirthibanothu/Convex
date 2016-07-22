@@ -1,5 +1,5 @@
 class Context:
-    """Empty class meant to contain arbitrary strategy data."""
+    """Empty class meant to contain arbitrary data."""
     def __init__(self, **kwargs):
         for (k, v) in kwargs.items():
             setattr(self, k, v)

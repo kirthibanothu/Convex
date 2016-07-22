@@ -9,6 +9,7 @@ class Gateway:
 
     @property
     def loop(self):
+        """Event loop."""
         return self._loop
 
     async def launch(self):
@@ -16,10 +17,15 @@ class Gateway:
         raise NotImplementedError()
 
     def subscribe(self, instrument):
-        """Subscribe to instrument."""
+        """Have gateway subscribe to data for instrument."""
         raise NotImplementedError()
 
     def register(self, instrument, on_update):
+        """Register update callback for instrument.
+
+        ``on_update`` must be a coroutine accepting a ``market_data.Update`` as
+        the only paramemter.
+        """
         cbs = self._callbacks[instrument]
         if not cbs:
             self.subscribe(instrument)

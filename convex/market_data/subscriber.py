@@ -9,6 +9,10 @@ log = logbook.Logger('MD')
 
 
 class Subscriber:
+    """Handle registration and conflate updates.
+
+    ``update_cache_size`` (int): Number of updates to keep cached.
+    """
     def __init__(self, instrument, gateway, update_cache_size=2):
         self._instrument = instrument
         self._update_event = asyncio.Event(loop=gateway.loop)
@@ -20,29 +24,41 @@ class Subscriber:
 
     @property
     def cached_updates(self):
+        """List of cached updates, with most recent first."""
         return reversed(self._updates)
 
     @property
     def update_cache_size(self):
+        """Update cache size."""
         return self._updates.maxlen
 
     @property
     def instrument(self):
+        """Subscribed instrument."""
         return self._instrument
 
     def has_update(self):
+        """Whether subscriber has pending update."""
         return self._update_event.is_set()
 
     async def fetch(self):
+        """Get latest, conflated update.
+
+        Wait until an update is available.
+        """
         if self.has_update():
             return self._fetch_pending_update()
         await self._update_event.wait()
         return self._fetch_pending_update()
 
     def fetch_nowait(self):
+        """Get latest, conflated update.
+
+        raises RuntimeError if no update is available.
+        """
         if self.has_update():
             return self._fetch_pending_update()
-        return None
+        raise RuntimeError('No update available')
 
     def _fetch_pending_update(self):
         assert(self.has_update())

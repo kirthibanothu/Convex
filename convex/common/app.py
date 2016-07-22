@@ -10,6 +10,7 @@ log = logbook.Logger('APP')
 
 
 class AsyncApp:
+    """Base async application."""
     LOG_FORMAT = \
         '{record.time:%Y-%m-%d %H:%M:%S.%f} - ' + \
         '{record.module} - ' + \
@@ -26,9 +27,14 @@ class AsyncApp:
 
     @property
     def loop(self):
+        """Event loop."""
         return self._loop
 
     def run_loop(self, *coros):
+        """Start event loop.
+
+        Run coroutines in event loop.
+        """
         with self._log_handler.applicationbound():
             log.info('Running AsyncApp, name={}', self._name)
             tasks = asyncio.gather(*coros)
