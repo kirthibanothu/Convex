@@ -1,3 +1,3 @@
-from .market_data import Gateway as MDGateway
+from .market_data import MDGateway
 
 __all__ = 'MDGateway',

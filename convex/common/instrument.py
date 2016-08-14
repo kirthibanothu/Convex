@@ -1,12 +1,12 @@
 class Instrument:
     DEFAULT_SEPERATOR = '/'
 
-    __slots__ = '_base_currency', '_quote_currency', '_exchange_data'
+    __slots__ = '_base_currency', '_quote_currency', '_exchange_id'
 
-    def __init__(self, base_currency, quote_currency, exchange_data=None):
+    def __init__(self, base_currency, quote_currency, exchange_id):
         self._base_currency = base_currency.upper()
         self._quote_currency = quote_currency.upper()
-        self._exchange_data = exchange_data if exchange_data else dict()
+        self._exchange_id = exchange_id
 
     @property
     def base_currency(self):
@@ -17,11 +17,12 @@ class Instrument:
         return self._quote_currency
 
     @property
-    def exchange_data(self):
-        return self._exchange_data
+    def exchange_id(self):
+        return self._exchange_id
 
     def make_symbol(self, seperator=DEFAULT_SEPERATOR):
-        return seperator.join([self._base_currency, self._quote_currency])
+        curr = seperator.join([self._base_currency, self._quote_currency])
+        return '{}::{}'.format(self._exchange_id.name, curr)
 
     def __eq__(self, other):
         return self._key() == other._key()
@@ -40,5 +41,15 @@ class Instrument:
         return self._base_currency, self._quote_currency
 
 
-BTC_USD = Instrument(base_currency='BTC', quote_currency='USD')
-LTC_USD = Instrument(base_currency='LTC', quote_currency='USD')
+def make_btc_usd(exchange_id):
+    """Return BTC/USD Instrument for given exchange."""
+    return Instrument(base_currency='BTC',
+                      quote_currency='USD',
+                      exchange_id=exchange_id)
+
+
+def make_ltc_usd(exchange_id):
+    """Return LTC/USD Instrument for given exchange."""
+    return Instrument(base_currency='LTC',
+                      quote_currency='USD',
+                      exchange_id=exchange_id)

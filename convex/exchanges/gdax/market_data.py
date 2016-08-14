@@ -10,8 +10,8 @@ import websockets
 
 from ..exchange_id import ExchangeID
 
-from ...common.instrument import BTC_USD
-from ...market_data.gateway import Gateway as BaseGateway
+from ...common.instrument import make_btc_usd
+from ...market_data.gateway import Gateway as BaseMDGateway
 
 from .recovery_handler import RecoveryHandler
 from .instrument_handler import InstrumentHandler
@@ -20,13 +20,13 @@ from .common import make_symbol as make_gdax_symbol
 log = logbook.Logger('GDAX')
 
 
-class Gateway(BaseGateway):
+class MDGateway(BaseMDGateway):
     ENDPOINT = 'https://api.gdax.com'
     WS_ENDPOINT = 'wss://ws-feed.gdax.com'
     REQS_PER_SEC = 3.0
 
     def __init__(self, loop=None):
-        BaseGateway.__init__(self, loop)
+        BaseMDGateway.__init__(self, loop)
         self._recovery_handler = RecoveryHandler(loop=self.loop)
         self._recovery_task = None
         self._in_sequence = 0
@@ -45,7 +45,7 @@ class Gateway(BaseGateway):
         return make_gdax_symbol(self._instrument)
 
     def subscribe(self, instrument):
-        if instrument != BTC_USD:
+        if instrument != make_btc_usd(ExchangeID.GDAX):
             raise ValueError('Unsupported instrument: {}'.format(instrument))
         self._inst_handler = InstrumentHandler(instrument)
 
@@ -58,7 +58,7 @@ class Gateway(BaseGateway):
             raise ValueError('No subscribed instruments')
 
         await asyncio.gather(
-                self._poll_endpoint(Gateway.WS_ENDPOINT),
+                self._poll_endpoint(MDGateway.WS_ENDPOINT),
                 self._consume_messages(),
                 loop=self.loop)
 
