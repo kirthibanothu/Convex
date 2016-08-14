@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import operator
 
 from sortedcontainers import SortedDict
 
@@ -70,7 +71,7 @@ class OrderBasedLevel(Level):
 
 class OrderBasedBook:
     def __init__(self):
-        self._bids = SortedDict(lambda price: -price)
+        self._bids = SortedDict(operator.neg)
         self._asks = SortedDict()
 
     def add_order(self, side, order_id, price, qty):
