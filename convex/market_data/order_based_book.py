@@ -103,10 +103,10 @@ class OrderBasedBook:
         self._bids.clear()
         self._asks.clear()
 
-    def make_book(self, book_id):
+    def make_book(self, sequence):
         """Return ``market_data.Book`` for OrderBasedBook."""
         return Book(
-                book_id=book_id,
+                sequence=sequence,
                 bids=list(self._bids.values()),
                 asks=list(self._asks.values()))
 

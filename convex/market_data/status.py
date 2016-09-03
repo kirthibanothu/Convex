@@ -1,5 +1,3 @@
 from enum import Enum
 
-Status = Enum(
-    'Status',
-    'OK GAPPED UNKNOWN')
+Status = Enum('Status', 'OK GAPPED UNKNOWN')
