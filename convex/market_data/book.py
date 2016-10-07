@@ -26,21 +26,21 @@ class Level:
 
 
 class Book:
-    __slots__ = '_bids', '_asks', '_book_id'
+    __slots__ = '_bids', '_asks', '_sequence'
 
-    def __init__(self, book_id, bids, asks):
+    def __init__(self, sequence, bids, asks):
         self._bids = bids if bids else []
         self._asks = asks if asks else []
-        self._book_id = book_id
+        self._sequence = sequence
 
     @property
-    def book_id(self):
+    def sequence(self):
         """Book ID.
 
         Indicates ordering of events pertaining to a single instrument on a
         given exchange.
         """
-        return self._book_id
+        return self._sequence
 
     @property
     def depth(self):
@@ -93,8 +93,8 @@ class Book:
 
         out = ''
         if max_depth > 1:
-            out += 'book_id={}, bid_depth={}, ask_depth={}\n'.format(
-                    self._book_id,
+            out += 'sequence={}, bid_depth={}, ask_depth={}\n'.format(
+                    self._sequence,
                     len(self._bids),
                     len(self._asks))
 
@@ -102,7 +102,7 @@ class Book:
             side_str = BID_FMT.format(lvl=bid) + ' | ' \
                     + ASK_FMT.format(lvl=ask)
             if max_depth <= 1:
-                return '({}) '.format(self._book_id) + side_str
+                return '({}) '.format(self._sequence) + side_str
             out += side_str + '\n'
             if depth >= max_depth:
                 break

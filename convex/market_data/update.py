@@ -40,18 +40,18 @@ class Update:
         return self._book
 
     @property
-    def book_id(self):
-        return self._book.book_id
+    def sequence(self):
+        return self._book.sequence
 
     @property
     def is_ok(self):
         return self._status == Status.OK
 
     def trades_before_book(self):
-        return filter(lambda t: t.book_id <= self.book_id, self._trades)
+        return filter(lambda t: t.sequence <= self.sequence, self._trades)
 
     def trades_after_book(self):
-        return filter(lambda t: t.book_id > self.book_id, self._trades)
+        return filter(lambda t: t.sequence > self.sequence, self._trades)
 
     @property
     def trades(self):

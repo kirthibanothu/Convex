@@ -72,11 +72,11 @@ class Subscriber:
     def _check_ordering(self, update):
         if not self._updates:
             return True
-        prev_book_id = self._updates[-1].book_id
-        if prev_book_id <= update.book_id:
+        prev_sequence = self._updates[-1].sequence
+        if prev_sequence <= update.sequence:
             return True
         log.warn('Invalid book ID ordering, prev={}, last={}',
-                 prev_book_id, update.book_id)
+                 prev_sequence, update.sequence)
         return False
 
     async def _on_update(self, update):
