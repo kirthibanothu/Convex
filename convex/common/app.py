@@ -24,6 +24,7 @@ class AsyncApp:
                 format_string=AsyncApp.LOG_FORMAT)
         self._loop = loop if loop else asyncio.get_event_loop()
         self._loop.add_signal_handler(signal.SIGINT, self._on_sigint)
+        self._run_cbs = set()
         self._shutdown_cbs = set()
 
     @property
@@ -31,24 +32,39 @@ class AsyncApp:
         """Event loop."""
         return self._loop
 
+    def add_run_callback(self, cb, shutdown_cb=None):
+        """Add callback to be run when app is started.
+
+        Args:
+            cb (coroutine): Callback to be run
+            shutdown_cb (function): Shutdown callback
+        """
+        self._run_cbs.add(cb)
+        if shutdown_cb:
+            self.add_shutdown_callback(shutdown_cb)
+
     def add_shutdown_callback(self, cb):
         """Add callback to be run on SIGINT.
 
         Callback is called exactly once.
+
+        Args:
+            cb (function): Shutdown callback
         """
+        if asyncio.iscoroutine(cb) or asyncio.iscoroutinefunction(cb):
+            raise ValueError('Shutdown callback is coroutine')
         self._shutdown_cbs.add(cb)
 
-    def run_loop(self, *coros):
-        """Start event loop.
-
-        Run coroutines in event loop.
-        """
+    def run(self):
+        """Start app."""
         with self._log_handler.applicationbound():
             log.info('Running AsyncApp, name={}', self._name)
+            log.info('Running event loop with {} task(s)', len(self._run_cbs))
+            coros = [AsyncApp._convert_coroutine(cb) for cb in self._run_cbs]
+            del self._run_cbs
             tasks = asyncio.gather(*coros)
+            asyncio.ensure_future(tasks, loop=self._loop)
             try:
-                log.info('Running event loop with {} task(s)', len(coros))
-                asyncio.ensure_future(tasks, loop=self._loop)
                 self._loop.run_forever()
             except asyncio.CancelledError:
                 log.notice('Tasks have been canceled')
@@ -56,6 +72,12 @@ class AsyncApp:
                 log.exception()
             finally:
                 self._stop_loop()
+
+    @staticmethod
+    def _convert_coroutine(cb):
+        if asyncio.iscoroutine(cb):
+            return cb
+        return cb()
 
     def _stop_loop(self):
         if self._loop.is_running():
