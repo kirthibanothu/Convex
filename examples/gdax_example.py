@@ -23,6 +23,7 @@ def main():
     gw = gdax.MDGateway(loop=app.loop)
     sub = MDSubscriber(make_btc_usd(ExchangeID.GDAX), gateway=gw)
 
+    app.add_shutdown_callback(gw.request_shutdown)
     app.run_loop(
             gw.launch(),
             poll_subscriber(sub))

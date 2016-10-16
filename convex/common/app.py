@@ -24,11 +24,19 @@ class AsyncApp:
                 format_string=AsyncApp.LOG_FORMAT)
         self._loop = loop if loop else asyncio.get_event_loop()
         self._loop.add_signal_handler(signal.SIGINT, self._on_sigint)
+        self._shutdown_cbs = set()
 
     @property
     def loop(self):
         """Event loop."""
         return self._loop
+
+    def add_shutdown_callback(self, cb):
+        """Add callback to be run on SIGINT.
+
+        Callback is called exactly once.
+        """
+        self._shutdown_cbs.add(cb)
 
     def run_loop(self, *coros):
         """Start event loop.
@@ -66,5 +74,10 @@ class AsyncApp:
 
     def _on_sigint(self):
         log.notice('Caught {sig.name}:{sig.value}', sig=signal.SIGINT)
+        if self._shutdown_cbs:
+            for cb in self._shutdown_cbs:
+                cb()
+            self._shutdown_cbs = None
+            return
         self._stop_loop()
         self._cancel_all()

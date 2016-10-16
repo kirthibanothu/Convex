@@ -41,6 +41,8 @@ class MDGateway(market_data.Gateway):
             'match': self._handle_match_message,
             'received': lambda m: False
         }
+        self._is_running = True
+        self._shutdown_evt = asyncio.Event(loop=loop)
 
     def subscribe(self, instrument):
         if instrument != make_btc_usd(ExchangeID.GDAX):
@@ -60,10 +62,22 @@ class MDGateway(market_data.Gateway):
         if not self._instrument:
             raise ValueError('No subscribed instruments')
 
-        await asyncio.gather(
-                self._consume_messages(),
-                self._poll_endpoint(MDGateway.WS_ENDPOINT),
-                loop=self.loop)
+        tasks = [
+            self._consume_messages(),
+            self._poll_endpoint(self._ws_endpoint),
+            self._shutdown_evt.wait()
+        ]
+        done, pending = await asyncio.wait(tasks,
+                                           loop=self.loop,
+                                           return_when=asyncio.FIRST_COMPLETED)
+        log.notice('Shutting down')
+        for p in pending:
+            p.cancel()
+
+    def request_shutdown(self):
+        log.notice('Shutdown requested')
+        self._is_running = False
+        self._shutdown_evt.set()
 
     async def _poll_queue(self):
         m0 = await self._message_queue.get()
@@ -74,7 +88,7 @@ class MDGateway(market_data.Gateway):
         return messages
 
     async def _consume_messages(self):
-        while True:
+        while self._is_running:
             messages = await self._poll_queue()
             has_update = False
             for m in map(json.loads, messages):
@@ -95,7 +109,7 @@ class MDGateway(market_data.Gateway):
             async with websockets.connect(endpoint, loop=self.loop) as sock:
                 try:
                     await send_subscribe(sock)
-                    while True:
+                    while self._is_running:
                         data = await sock.recv()
                         self._message_queue.put_nowait(data)
                         log.debug('Push size {}', self._message_queue.qsize())
@@ -179,8 +193,8 @@ class MDGateway(market_data.Gateway):
 
     async def _recover(self):
         with aiohttp.ClientSession(loop=self.loop) as session:
-            ORDER_BOOK_EP = MDGateway.ENDPOINT + '/products/{}/book'
-            endpoint = ORDER_BOOK_EP.format(self._product_id)
+            order_book_ep_fmt = self._endpoint + '/products/{}/book'
+            endpoint = order_book_ep_fmt.format(self._product_id)
             log.info('Recovering on {}', endpoint)
             async with session.get(endpoint, params={'level': 3}) as res:
                 snapshot = await res.json()
