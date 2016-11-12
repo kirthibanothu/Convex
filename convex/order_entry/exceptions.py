@@ -8,23 +8,23 @@ class OrderError(RuntimeError):
 
 class SubmitNack(OrderError):
     """Exception raised for errors in submitting order."""
-    def __init__(self, order, reason=''):
-        super().__init__(order, reason)
+    def __init__(self, reason=''):
+        super().__init__(None, reason)
 
 
-class ReviseNack(OrderNack):
+class ReviseNack(OrderError):
     """Exception raised for errors in revising order."""
     def __init__(self, order, reason=''):
         super().__init__(order, reason)
 
 
-class CancelNack(OrderNack):
+class CancelNack(OrderError):
     """Exception raised for errors in canceling order."""
     def __init__(self, order, reason=''):
         super().__init__(order, reason)
 
 
-class InternalNack(OrderNack):
+class InternalNack(OrderError):
     """Exception raised for interal errors (e.g. limits)."""
     def __init__(self, order, reason=''):
         super().__init__(order, reason)
