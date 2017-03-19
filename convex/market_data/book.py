@@ -1,4 +1,5 @@
 import itertools
+import operator
 
 
 class Level:
@@ -23,6 +24,10 @@ class Level:
     def orders(self):
         """Number of orders"""
         return self._orders
+
+    def dump(self):
+        """Dump information as dictionary"""
+        return {'price': self.price, 'qty': self.qty, 'orders': self.orders}
 
 
 class Book:
@@ -76,6 +81,17 @@ class Book:
     def best_ask(self):
         """Best ask level."""
         return next(iter(self._asks))
+
+    def dump(self, depth=5):
+        """Dump information as dictionary"""
+        bids = itertools.islice(self._bids, depth)
+        asks = itertools.islice(self._asks, depth)
+        call_dump = operator.methodcaller('dump')
+        return {
+            'sequence': self._sequence,
+            'bids': list(map(call_dump, bids)),
+            'asks': list(map(call_dump, asks))
+        }
 
     def show(self, max_depth=5):
         """Return visual represention of book.

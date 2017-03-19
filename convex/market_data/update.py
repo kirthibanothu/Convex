@@ -61,6 +61,16 @@ class Update:
     def status(self):
         return self._status
 
+    def dump(self, depth=5):
+        book = self._book.dump(depth=depth)
+        return {
+            'instrument': str(self._instrument),
+            'status': self._status.name,
+            'timestamp': str(self._timestamp),
+            'book': book,
+            'trades': [dict(t._asdict()) for t in self._trades]
+        }
+
     def show(self, max_depth=5):
         res = '{}: {} - {}\n'.format(
                 self._instrument,

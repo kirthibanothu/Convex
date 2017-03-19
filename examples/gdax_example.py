@@ -13,7 +13,7 @@ from convex.exchanges import gdax
 async def poll_subscriber(sub):
     while True:
         update = await sub.fetch()
-        print(('-' * 32) + '\n{}'.format(update.show(5)))
+        print(('-' * 32) + '\n{}'.format(update.dump(5)))
         await asyncio.sleep(10)
 
 
