@@ -1,3 +1,8 @@
+class LimitError(RuntimeError):
+    """Error caused by limit breach."""
+    pass
+
+
 class OrderError(RuntimeError):
     """Base order entry error."""
     def __init__(self, order, reason=''):

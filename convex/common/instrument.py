@@ -36,8 +36,16 @@ class Instrument:
                           exchange_id=ExchangeID[exchange])
 
     @property
+    def base(self):
+        return self._base_currency
+
+    @property
     def base_currency(self):
         return self._base_currency
+
+    @property
+    def quote(self):
+        return self._quote_currency
 
     @property
     def quote_currency(self):

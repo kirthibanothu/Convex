@@ -1,7 +1,9 @@
 import asyncio
 import abc
 
-from .order import Order
+import logbook
+
+log = logbook.Logger('OE')
 
 
 class Gateway(metaclass=abc.ABCMeta):
@@ -20,6 +22,24 @@ class Gateway(metaclass=abc.ABCMeta):
         """Known sessions."""
         return set(self._oid_sessions.values())
 
+    @abc.abstractmethod
+    async def wait_ready(self):
+        """Return when gateway is ready to submit orders.
+
+        This method must be overriden by dereived class.
+
+        This method is a coroutine.
+        """
+
+    @abc.abstractmethod
+    async def get_balance(self, currency):
+        """Get exchange account balance for currency.
+
+        This method must be overriden by dereived class.
+
+        THis method is a coroutine.
+        """
+
     async def submit(
             self, session,
             side, price, qty,
@@ -31,16 +51,16 @@ class Gateway(metaclass=abc.ABCMeta):
         """
         if ioc and post_only:
             raise ValueError('Cannot send post-only and IOC')
-        order_id = await self.send_order(side=side,
-                                         price=price,
-                                         qty=qty,
-                                         ioc=ioc,
-                                         post_only=post_only)
-        self._oid_sessions[order_id] = session
-        return Order(session=session,
-                     order_id=order_id,
-                     price=price,
-                     remaining_qty=qty)
+        order = await self.send_order(session=session,
+                                      side=side,
+                                      price=price,
+                                      qty=qty,
+                                      ioc=ioc,
+                                      post_only=post_only)
+        if order.filled_qty:
+            session.notify_fill(order, order.filled_qty)
+        self._oid_sessions[order.order_id] = session
+        return order
 
     async def cancel(self, order):
         """Cancel order.
@@ -50,8 +70,12 @@ class Gateway(metaclass=abc.ABCMeta):
         This method is a coroutine.
         """
         await self.send_cancel(order)
-        sess = self._oid_sessions.pop(order.order_id)
-        sess.notify_complete(order)
+        try:
+            sess = self._oid_sessions.pop(order.order_id)
+        except KeyError:
+            log.warning('Cancelled order for unknown session')
+        else:
+            sess.notify_complete(order)
 
     async def revise(self, order, price=None, qty=None):
         """Revise order.
@@ -75,6 +99,29 @@ class Gateway(metaclass=abc.ABCMeta):
             cancels = [sess.cancel_all() for sess in self.sessions]
             await asyncio.gather(cancels, loop=self.loop)
 
+    def on_fill(self, order, filled_qty):
+        if not order.remaining_qty:
+            return self._on_complete_fill(order, filled_qty)
+
+        try:
+            session = self._oid_sessions[order.order_id]
+        except KeyError:
+            log.error('Fill for unknown session: filled_qty={}, order={}',
+                      filled_qty, order)
+            asyncio.ensure_future(self.cancel(order))
+        else:
+            session.on_fill(order, filled_qty)
+
+    def _on_complete_fill(self, order, filled_qty):
+        try:
+            session = self._oid_sessions.pop(order.order_id)
+        except KeyError:
+            log.error('Complete fill for unknown session: ' +
+                      'filled_qty={}, order={}', filled_qty, order)
+        else:
+            session.on_fill(order, filled_qty)
+            session.on_complete(order)
+
     @abc.abstractmethod
     async def send_order(self, side, price, qty, ioc, post_only):
         """Send message for new order.
@@ -84,7 +131,7 @@ class Gateway(metaclass=abc.ABCMeta):
         This method is a coroutine.
 
         Returns:
-            Exchange specific order ID.
+            Order object
         """
 
     @abc.abstractmethod
@@ -104,6 +151,7 @@ class Gateway(metaclass=abc.ABCMeta):
 
         This method is a coroutine.
         """
+
     async def send_cancel_all(self):
         """Send message to cancel all orders.
 

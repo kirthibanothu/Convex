@@ -1,5 +1,6 @@
 import asyncio
 import signal
+import os
 
 import logbook
 import uvloop
@@ -11,16 +12,17 @@ log = logbook.Logger('APP')
 
 class AsyncApp:
     """Base async application."""
-    LOG_FORMAT = \
-        '{record.time:%Y-%m-%d %H:%M:%S.%f} - ' + \
-        '{record.module} - ' + \
-        '{record.level_name} - ' + \
+    LOG_FORMAT = (
+        '{record.time:%Y-%m-%d %H:%M:%S.%f} - ' +
+        '{record.module} - ' +
+        '{record.level_name} - ' +
         '{record.message}'
+    )
 
     def __init__(self, name, loop=None):
         self._name = name
         self._log_handler = logbook.TimedRotatingFileHandler(
-                name + '.log',
+                '{}-p{}.log'.format(name, os.getpid()),
                 format_string=AsyncApp.LOG_FORMAT)
         self._loop = loop if loop else asyncio.get_event_loop()
         self._loop.add_signal_handler(signal.SIGINT, self._on_sigint)
