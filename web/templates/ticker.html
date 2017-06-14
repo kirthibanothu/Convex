@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+    <head>
+        <!-- TODO: Make sure these are internally served up -->
+
+        <!-- CSS Stylesheets -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <!-- Javascript Imports -->
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+        <script src="https://d3js.org/d3.v4.js"></script>
+
+        <style>
+            text { fill: white; }
+            line { stroke: white; }
+            path { stroke: #ecf0f1; opacity: 0.5 }
+        </style>
+    </head>
+    <body>
+        <!-- Header Section -->
+        <div class="container-fluid">
+            <div class="row" id="statusId">
+                <div class="col-md-8">
+                    <h3 style="text-align: left; color: white; margin-top:17px; margin-bottom:17px">
+                        Ticker | <span id="contractId"></span>
+                    </h3>
+                </div>
+                <div class="col-md-4">
+                    <table style="width: 350px; font-family: arial, sans serif; table-layout: fixed; color: white; margin-top:10px; margin-bottom:10px" align="right">
+                        <tr>
+                            <th style="text-align: right">Bid Qty</th>
+                            <th style="text-align: right">Bid Price</th>
+                            <th style="text-align: right">Ask Price</th>
+                            <th style="text-align: right">Ask Qty</th>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right" id="bid_qty"></td>
+                            <td style="text-align: right" id="bid_price"></td>
+                            <td style="text-align: right" id="ask_price"></td>
+                            <td style="text-align: right" id="ask_qty"></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="row" style="background-color: #2c3e50">
+                <svg width="100%" height="200"></svg>
+            </div>
+        </div>
+        <div class="container-fluid">
+            <div class="row" style="background-color: #34495e">
+                <div style="margin-top: 15px; margin-bottom: 15px; color: #ecf0f1;">
+                    <p id="log" style="text-align: center; font-size: 10px"></p>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script language="javascript" type="text/javascript">
+        // Helper functions
+        function set_conn_status(is_alive) {
+            if(is_alive) {
+                $('#statusId').css('background-color', '#27ae60');
+            } else {
+                $('#statusId').css('background-color', '#c0392b');
+            }
+        }
+
+        // Global Variables
+        var market_data = [];
+        var graph_update_interval = 250;
+
+        // Graphing spec
+        // TODO: Move into seperate function
+        var browser_width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+
+        var svg = d3.select("svg");
+        var margin = {top: 20, right: 20, bottom: 30, left: 50};
+        var width = browser_width - margin.left - margin.right;
+        var height = 200 - margin.top - margin.bottom;
+        var g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+        var parseTime = d3.timeParse("%Y-%m-%d %H:%M:%S.%L");
+
+        var x = d3.scaleTime().rangeRound([0, width]);
+        var y = d3.scaleLinear().rangeRound([height, 0]);
+
+        var bid_line = d3.line().x(function(d) { return x(d.time); }).y(function(d) { return y(d.book.bid.price); });
+        var ask_line = d3.line().x(function(d) { return x(d.time); }).y(function(d) { return y(d.book.ask.price); });
+
+        x.domain(d3.extent(market_data, function(d) { return d.time; }));
+        y.domain(d3.extent(market_data, function(d) { return d.book.bid.price; }));
+
+        g.append("g")
+             .attr("transform", "translate(0," + height + ")")
+             .attr("class", "x axis")
+             .call(d3.axisBottom(x))
+         .select(".domain")
+             .remove();
+
+        g.append("g")
+            .attr("class", "y axis")
+            .call(d3.axisLeft(y))
+
+         .append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("y", 6)
+            .attr("dy", "0.71em")
+            .attr("text-anchor", "end")
+            .text("Price ($)");
+
+        g.append("path").attr("class", "bid_line").datum(market_data).attr("fill", "none")
+        g.append("path").attr("class", "ask_line").datum(market_data).attr("fill", "none")
+
+        // TODO: pass in data parameter
+        function update_top_level_graph(top_level_md) {
+            // ToDO: inefficient
+            for(var i = 0; i < top_level_md.length; i++) { top_level_md[i].time = parseTime(top_level_md[i].timestamp.slice(0, -3)); }
+
+            x.domain(d3.extent(top_level_md, function(d) { return d.time; }));
+            y.domain(
+                [
+                    d3.min(top_level_md, function(d) { return Math.min(d.book.bid.price, d.book.ask.price) - 0.2; }),
+                    d3.max(top_level_md, function(d) { return Math.max(d.book.bid.price, d.book.ask.price) + 0.2; })
+                ]
+            );
+
+            var svg_transition = svg.transition();
+
+            svg_transition.select(".bid_line").duration(graph_update_interval).attr("d", bid_line)
+            svg_transition.select(".ask_line").duration(graph_update_interval).attr("d", ask_line)
+
+            g.select('.y').call(d3.axisLeft(y));
+            g.select('.x').call(d3.axisBottom(x).tickFormat(d3.timeFormat("%H:%M:%S")).ticks(3));
+
+            // Adding top level markers
+            var bid_circles = svg.select("g").selectAll(".bid_circle").data(top_level_md);
+
+            bid_circles.exit().remove();
+            bid_circles.enter().append("circle").attr("class", "bid_circle").attr("r", 0);
+
+            bid_circles.transition().duration(graph_update_interval)
+                .attr("cx", function(d) { return x(d.time); })
+                .attr("cy", function(d) { return y(d.book.bid.price); })
+                .attr("r", function(d) { return Math.max(1, Math.sqrt(d.book.bid.qty*10)); })
+                .attr("fill", "lightblue")
+                .attr("opacity", 0.5)
+                .attr("stroke", "blue")
+
+            var ask_circles = svg.select("g").selectAll(".ask_circle").data(top_level_md)
+
+            ask_circles.exit().remove();
+            ask_circles.enter().append("circle").attr("class", "ask_circle").attr("r", 0);
+
+            ask_circles.transition().duration(graph_update_interval)
+                .attr("cx", function(d) { return x(d.time); })
+                .attr("cy", function(d) { return y(d.book.ask.price); })
+                .attr("r", function(d) { return Math.max(1, Math.sqrt(d.book.ask.qty*10)); })
+                .attr("fill", "lightgreen")
+                .attr("opacity", 0.5)
+                .attr("stroke", "green")
+        }
+
+        var conn = null;
+
+        function update_header(msg) {
+            try {
+                $('#bid_qty').text(msg.book.bid.qty);
+                $('#ask_qty').text(msg.book.ask.qty);
+                $('#ask_price').text(msg.book.ask.price);
+                $('#bid_price').text(msg.book.bid.price);
+                $('#contractId').text(msg.instrument);
+            } catch (e) {
+                console.log("Error updating header. " + e);
+            }
+        }
+
+        function log(msg) { try { $('#log').text(JSON.stringify(msg)); } catch (e) { } }
+
+        log("Trying to establish a connection to server");
+        function connect() {
+            log("Trying to connect...");
+
+            //var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+window.location.host+'/ws';
+            var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:5001"+'/ws';
+            log('Connecting to websocketUri at: ' + webSocketUri);
+
+            ws = new WebSocket(webSocketUri);
+            ws.onopen = function () { set_conn_status(true); };
+            ws.onmessage = function (e) {
+                               try {
+                                   var data = JSON.parse(e.data);
+                                   log(data);
+                                   update_header(data);
+
+                                   if(market_data.length > 30) { market_data.shift() }
+                                   market_data.push(data);
+
+                                   update_top_level_graph(market_data);
+                               }
+                               catch (e) {};
+                           };
+            ws.onclose = function () { set_conn_status(false); setTimeout(function() { connect(); }, 5000); };
+        };
+
+        connect();
+    </script>
+</html>

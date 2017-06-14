@@ -1,9 +1,8 @@
 from ..exchanges import ExchangeID
 
-
 class Instrument:
     DEFAULT_SEPERATOR = ''
-    KNOWN_CURRENCiES = 'USD', 'BTC', 'LTC'
+    KNOWN_CURRENCiES = 'USD', 'BTC', 'LTC', 'ETH'
     SYMBOL_FMT = '{base}{quote}@{exch}'
 
     __slots__ = '_base_currency', '_quote_currency', '_exchange_id'
@@ -77,16 +76,22 @@ class Instrument:
         """Return key for comparison and hashing."""
         return self._base_currency, self._quote_currency
 
-
 def make_btc_usd(exchange_id):
     """Return BTC/USD Instrument for given exchange."""
     return Instrument(base_currency='BTC',
                       quote_currency='USD',
                       exchange_id=exchange_id)
 
-
 def make_ltc_usd(exchange_id):
     """Return LTC/USD Instrument for given exchange."""
     return Instrument(base_currency='LTC',
                       quote_currency='USD',
                       exchange_id=exchange_id)
+
+def make_eth_usd(exchange_id):
+    """Return ETH/USD Instrument for given exchange."""
+    return Instrument(base_currency='ETH',
+                      quote_currency='USD',
+                      exchange_id=exchange_id)
+
+

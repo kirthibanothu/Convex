@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+    <head>
+        <!-- TODO: Make sure these are internally served up -->
+
+        <!-- CSS Stylesheets -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <!-- Javascript Imports -->
+        <!--script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.0/jquery.min.js"></script-->
+        <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+
+        <script src="https://d3js.org/d3.v4.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+        <style>
+            tr:hover { background-color: #16242d; }
+        </style>
+    </head>
+    <body>
+        <!-- Header Section -->
+        <div class="container-fluid">
+            <div class="row" id="statusId" style="background-color: #2980b9;">
+                <div class="col-md-8">
+                    <h3 style="text-align: left; color: white; margin-top: 10px; margin-bottom: 10px;">
+                        Depth Feed
+                    </h3>
+                </div>
+            </div>
+            <div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">
+                <div class="col-md-4">
+                    <table id="depth" style="font-size: 11px; color: white; width: 450px; border-bottom: 2px solid #2f3c44;">
+                        <col width="60">
+                        <col width="100">
+                        <col width="80">
+                        <col width="100">
+                        <col width="60">
+                        <col width="50">
+                        <tr>
+                            <th style="text-align: right;">Orders</th>
+                            <th style="text-align: right;">Quantity</th>
+                            <th style="text-align: center;">Price</th>
+                            <th>Quantity</th>
+                            <th>Orders</th>
+                            <th style="text-align: right">Delta</th>
+                        </tr>
+                    </table>
+                    <table id="asks" style="color: white; width: 450px;">
+                        <col width="60">
+                        <col width="100">
+                        <col width="80">
+                        <col width="100">
+                        <col width="60">
+                        <col width="50">
+                    </table>
+                    <table id="spread" style="border-top: 1px solid #2f3c44; border-bottom: 1px solid #2f3c44; color: white; width: 450px">
+                        <col width="60">
+                        <col width="100">
+                        <col width="80">
+                        <col width="100">
+                        <col width="60">
+                        <col width="50">
+                    </table>
+                    <table id="bids" style="color: white; width: 450px;">
+                        <col width="60">
+                        <col width="100">
+                        <col width="80">
+                        <col width="100">
+                        <col width="60">
+                        <col width="50">
+                    </table>
+                </div>
+            </div>
+        </div>
+    </body>
+    <script src="/static/js/depth_feed.js"></script>
+    <script language="javascript" type="text/javascript">
+        var feed_depth = 10;
+        init_depth_feed(feed_depth);
+
+        var conn = null;
+        function connect() {
+            var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
+
+            ws = new WebSocket(webSocketUri);
+
+            ws.onopen = function () {
+                set_conn_status(true);
+            };
+
+            ws.onmessage = function (e) {
+                try {
+                    var data = JSON.parse(e.data);
+                    update_depth_feed(data.book);
+
+                }
+                catch (e) {
+                    console.log("Book data is corrupted. Received: " + e.data);
+                };
+            };
+
+            ws.onclose = function () {
+                set_conn_status(false);
+                setTimeout(function() { connect(); }, 5000);
+            };
+        };
+
+        connect();
+
+    </script>
+</html> 

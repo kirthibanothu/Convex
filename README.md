@@ -28,3 +28,15 @@ $ make html
 ## Tests
 
 Tests can be ran by running `py.test` in the top level module.
+
+## Running The Application
+We have a micro service basic architecture with GUI pieces.
+The Dashboard is the main GUI right now.
+    - To launch the dashboard:
+        - ./services/dashboard.py
+    - To launch the services that it needs:
+        - ./services/depth_feed.py
+        - ./services/click_trader.py <API_KEY> <API_SECRET> <PASSPHRASE> 0.0.0.0 8003
+
+Limitations:
+    - Most of the configuration for the GUI's are hard coded as of right now. Need to make this configurable in some intelligible way.

@@ -13,7 +13,7 @@ import websockets
 from ..exchange_id import ExchangeID
 
 from ...common import Side, make_price, make_qty
-from ...common.instrument import make_btc_usd
+from ...common.instrument import make_btc_usd, make_ltc_usd, make_eth_usd
 from ... import market_data
 
 from .common import make_symbol as make_gdax_symbol
@@ -45,7 +45,7 @@ class MDGateway(market_data.Gateway):
         self._shutdown_evt = asyncio.Event(loop=loop)
 
     def subscribe(self, instrument):
-        if instrument != make_btc_usd(ExchangeID.GDAX):
+        if instrument != make_btc_usd(ExchangeID.GDAX) and instrument != make_ltc_usd(ExchangeID.GDAX) and instrument != make_eth_usd(ExchangeID.GDAX):
             raise ValueError('Unsupported instrument: {}'.format(instrument))
         self._instrument = instrument
 

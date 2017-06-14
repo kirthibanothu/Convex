@@ -1,7 +1,7 @@
 import datetime as dt
 
 from .status import Status
-
+from .trade import dump_trade
 
 class Update:
     __slots__ = '_instrument', '_book', '_trades', '_status', '_timestamp'
@@ -61,15 +61,22 @@ class Update:
     def status(self):
         return self._status
 
-    def dump(self, depth=5):
-        book = self._book.dump(depth=depth)
+    def _dump_update(self, book, trades):
         return {
             'instrument': str(self._instrument),
             'status': self._status.name,
             'timestamp': str(self._timestamp),
             'book': book,
-            'trades': [dict(t._asdict()) for t in self._trades]
+            'trades': trades
         }
+
+    def dump(self, depth=5):
+        book = self._book.dump(depth=depth)
+        trades = []
+        for t in self._trades:
+            trades.append(dump_trade(t))
+
+        return self._dump_update(book, trades)
 
     def show(self, max_depth=5):
         res = '{}: {} - {}\n'.format(
