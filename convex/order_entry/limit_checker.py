@@ -40,5 +40,5 @@ class LimitChecker:
                                                            price,
                                                            qty,
                                                            session.open_orders)
-            await submit_func(session, side, price, qty, **kwargs)
+            return await submit_func(session, side, price, qty, **kwargs)
         return submit_wrapper

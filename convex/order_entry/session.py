@@ -64,6 +64,24 @@ class Session:
             currency=self._instrument.quote_currency)
         return balance
 
+    async def exch_orders(self):
+        """Get all exchange orders [open, pending, active]
+        This method is a coroutine
+        """
+        return await self._gateway.exch_orders()
+
+    async def get_fill(self, order_id):
+        """Gets fill information for a specific order
+        This method is a coroutine
+        """
+        return await self._gateway.get_fill(order_id)
+
+    async def get_fills(self):
+        """Gets all fills
+        This method is a coroutine
+        """
+        return await self._gateway.get_fills()
+
     @property
     def long_position(self):
         return self._open_position(Side.BUY)
@@ -91,6 +109,7 @@ class Session:
                                            qty=qty,
                                            ioc=ioc,
                                            post_only=quote)
+
         if order.remaining_qty:
             self._open_orders.add(order)
         return order
@@ -146,13 +165,23 @@ class Session:
             raise ReviseNack(order, 'Cannot increase revise quantity')
         await self._gateway.revise(order, price=price, qty=qty)
 
-    async def cancel_all(self):
+    async def cancel_session(self):
         """Cancel all orders for session.
 
         This method is a coroutine.
         """
+        #TODO: There is a bug in this code somewhere...
         cancels = [self.cancel(order) for order in self.open_orders]
-        await asyncio.gather(cancels, loop=self._gateway.loop)
+        await asyncio.gather(*cancels, loop=self._gateway.loop)
+
+
+    async def cancel_all(self):
+        """Cancels all orders at a global scale
+
+        This method is a coroutine.
+        """
+        await self._gateway.cancel_all()
+
 
     def notify_fill(self, order, filled_qty):
         """Called when order is traded against."""

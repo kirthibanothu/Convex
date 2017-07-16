@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
+"""Dashboard
+
+Usage:
+    ./dashboard.py <IP>
+"""
 
 import asyncio
+import docopt
 import json
 import logging
 import os
@@ -8,10 +14,7 @@ import os
 import aiohttp
 import aiohttp.web
 
-from convex.common.instrument import make_btc_usd, make_eth_usd, make_ltc_usd
-from convex.exchanges import ExchangeID
 from convex.market_data import Subscriber as MDSubscriber
-from convex.exchanges import gdax
 
 LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s | %(message)s | [%(module)s] [%(funcName)s]'
 logging.basicConfig(format= LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
@@ -75,12 +78,17 @@ class Dashboard:
         except asyncio.CancelledError:
             pass
 
-def main():
-    web_params = {'ip': '0.0.0.0', 'port': 8000}
+def main(args):
+    web_params = {
+                    'ip': args['<IP>'],
+                    'port': 8000
+                 }
+
     loop = asyncio.get_event_loop()
 
     dashboard = Dashboard(loop)
     loop.run_until_complete(dashboard.run(web_params))
 
 if __name__ == '__main__':
-    main()
+    args = docopt.docopt(__doc__)
+    main(args)

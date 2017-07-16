@@ -9,3 +9,5 @@ ujson==1.35
 python_dateutil==2.6.0
 uvloop==0.5.3
 websockets==3.2
+jupyter==4.3.0
+plotly=2.0.10

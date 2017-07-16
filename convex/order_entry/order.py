@@ -46,8 +46,8 @@ class Order:
         return {
             'side': self.side.name,
             'order_id': self.order_id,
-            'price': self.price,
-            'remaining_qty': self.remaining_qty
+            'price': float(self.price),
+            'remaining_qty': float(self.remaining_qty)
         }
 
     def __hash__(self):

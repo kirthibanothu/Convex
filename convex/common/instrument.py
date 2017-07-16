@@ -94,4 +94,9 @@ def make_eth_usd(exchange_id):
                       quote_currency='USD',
                       exchange_id=exchange_id)
 
+instruments_lookup = {
+                        'BTC' : make_btc_usd(ExchangeID.GDAX),
+                        'ETH' : make_eth_usd(ExchangeID.GDAX),
+                        'LTC' : make_ltc_usd(ExchangeID.GDAX)
+                    }
 

@@ -19,9 +19,9 @@
         <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
         <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
         <style>
-body .lm_content{
-  overflow: scroll;
-}
+            body .lm_content {
+              overflow: scroll;
+            }
 
             tr:hover { background-color: #16242d; }
             ::-webkit-scrollbar {
@@ -45,6 +45,7 @@ body .lm_content{
             .nav-tabs>li:hover>a {
                 color: #555;
             }
+
             #market_buy_tab>a {
                 border: 0px;
             }
@@ -60,6 +61,27 @@ body .lm_content{
                 color: black;
                 background-color: #c0392b;
                 border: 0px;
+            }
+
+            .messageCounter {
+                position: absolute;
+                right: -75px;
+                top: -0px;
+                color:#fff;
+                font-weight: bold;
+                z-index: 4;
+                padding: 2px 5px;
+            }
+            .tab-btn-first {
+                position: absolute;
+                right: -30px;
+                top: -0px;
+                font-weight: bold;
+                z-index: 4;
+                border-radius: 50px;
+            }
+            .smfont {
+                font-size: 10px;
             }
         </style>
     </head>
@@ -87,8 +109,10 @@ body .lm_content{
         // Compute depth feed width
         var feed_depth = 10;
         var row_size = 14; // pixels
-        var base_measurements = { 'depth_feed': {'width': 450, 'height': (2*feed_depth+1)*row_size }, 'trade_actions': {'width': 220} };
+        var base_measurements = { 'depth_feed': {'width': 450, 'height': (2*feed_depth+1)*row_size }, 'trade_actions': {'width': 230} };
 
+        // TODO: define the width and height of the config below in a different struct
+        // Defines the initial layout of the Dashboard
         var config = {
             content: [{
                 type: 'row',
@@ -96,7 +120,7 @@ body .lm_content{
                 {
                     type: 'component',
                     componentName: 'trade_actions',
-                    componentState: { label: 'A' },
+                    componentState: { },
                     title: 'Trade Actions',
                     width: Math.ceil((base_measurements.trade_actions.width/getWidth())*100)
                 },{
@@ -104,19 +128,19 @@ body .lm_content{
                     content: [{
                         type: 'component',
                         componentName: 'depth_feed',
-                        componentState: { label: 'A' },
+                        componentState: { },
                         title: 'Depth Feed',
                         height: Math.ceil(((base_measurements.depth_feed.height + 60)/getHeight())*100)
                     }, {
                         type: 'component',
-                        componentName: 'tick_aggregated_feed',
-                        componentState: { label: 'A' },
-                        title: 'Tick Aggregated Feed'
+                        componentName: 'fills',
+                        componentState: { },
+                        title: 'Fills'
                     }, {
                         type: 'component',
-                        componentName: 'fills',
-                        componentState: { label: 'A' },
-                        title: 'Coin Aggregated Feed'
+                        componentName: 'placeholder',
+                        componentState: { },
+                        title: 'Placeholder'
 
                     }],
                     width: Math.ceil((base_measurements.depth_feed.width/getWidth())*100),
@@ -128,20 +152,31 @@ body .lm_content{
                         {
                             type: 'component',
                             componentName: 'trade_history',
-                            componentState: { label: 'B' },
+                            componentState: { },
                             title: 'Trade History',
                         },{
                             type: 'component',
-                            componentName: 'fills',
-                            componentState: { label: 'D'},
-                            title: 'Fills'
+                            componentName: 'signals',
+                            componentState: { },
+                            title: 'Signals'
                         }],
                         width: Math.ceil((355/getWidth())*100)
                     },{
-                        type: 'component',
-                        componentName: 'fills',
-                        componentState: { label: 'C' },
-                        title: 'Fills'
+                        type: 'column',
+                        content:[
+                        {
+                            type: 'component',
+                            componentName: 'messaging',
+                            componentState: { },
+                            title: 'Messaging'
+                        },
+                        {
+                            type: 'component',
+                            componentName: 'open_orders',
+                            componentState: { },
+                            title: 'Open Orders'
+                        }
+                        ]
                     }]
                 }]
             }]
@@ -162,58 +197,61 @@ body .lm_content{
                 return;
             }
 
-            console.log("Rendering Trade Actions Component");
+            var tab_btn_container = $('<div class="tab-btn-first"></div>');
+            var refresh_button = $('<button class="btn btn-default btn-xs smfont" title="Refresh"><span class="glyphicon glyphicon-transfer"></span></button>');
+            refresh_button.click(
+                function() {
+                    goldenDash.eventHub.emit('click_trader_message', '{"admin": "GetBalance"}');
+                }
+            );
+            tab_btn_container.append(refresh_button);
+
+            // Add the refresh button whenever a tab is created
+            container.on( 'tab', function( tab ){
+                tab.element.append( tab_btn_container );
+            });
+
+
+            var onSocketOpen =
+                function (socket_name) {
+                    $("#socket_connection_status").css('display', 'none');
+                };
+            var onSocketClosed =
+                function (socket_name) {
+                    $('#socket_connection_status').css('display', 'block');
+                    const msg = 'Socket ['+socket_name+'] disconnected!';
+                    $("#socket_connection_status").text(msg);
+                };
+            goldenDash.eventHub.on('socket_open', onSocketOpen);
+            goldenDash.eventHub.on('socket_closed', onSocketClosed);
+
+            // TODO: Refactor this part into smaller HTML chunks
             container.getElement().append(
                 '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing; margin: 0px">'+
-                '    <div class="col-md-6 col-xs-6 follow line" align="center">'+
-                '        <h6><span id="balance_quoted">0.00</span> <br/> <span><b>USD</b></span> </h6>'+
+                '    <div class="alert alert-danger" id="socket_connection_status" style="padding: 0px 5px 0px 5px; margin: 10px 10px 10px 10px; display: none; border-radius: 0px;" role="alert"></div>'+
+                '    <div class="col-md-4 col-xs-6 follow line" align="right">'+
+                '        <h6><span>Available</span> <br/> <span>Held</span> <br/> <span>Currency</span> </h6>'+
                 '    </div>'+
-                '    <div class="col-md-6 col-xs-6 follow line" align="center">'+
-                '        <h6><span id="balance_base">0.00000000</span> <br/> <span><b>BTC</b></span></h6>'+
+                '    <div class="col-md-4 col-xs-6 follow line" align="left">'+
+                '        <h6><span id="quoted_available">0.00</span> <br/> <span id="quoted_hold">0.00</span> <br/> <span><b>USD</b></span> </h6>'+
+                '    </div>'+
+                '    <div class="col-md-4 col-xs-6 follow line" align="left">'+
+                '        <h6><span id="base_available">0.000000</span> <br/> <span id="base_hold">0.00</span> <br/> <span><b name="BASE_CURRENCY"></b></span></h6>'+
+                '    </div>'+
+                '    <div class="col-md-5 col-xs-6 follow line" align="right">'+
+                '        <h6><b><span>Total Value</span></b></h6>'+
+                '    </div>'+
+                '    <div class="col-md-7 col-xs-6 follow line" align="left">'+
+                '        <h6><span id="account_value">0.00</span> <span><b>USD</b></span> </h6>'+
                 '    </div>'+
                 '</div>'+
-                '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing; margin: 0px; height: 250px;">'+
-                '    <ul class="nav nav-tabs">'+
-                '        <li style="width: 74px; font-weight: bold;" align="center" class="active"><a data-toggle="tab" href="#market">Market</a></li>'+
-                '        <li style="width: 75px; font-weight: bold;" align="center"><a data-toggle="tab" href="#limit">Limit</a></li>'+
-                '        <li style="width: 74px; font-weight: bold;" align="center"><a data-toggle="tab" href="#stop">Stop</a></li>'+
-                '    </ul>'+
-                '    <div class="tab-content">'+
-                '        <div id="market" class="tab-pane fade in active">'+
-                '            <ul class="nav nav-tabs" style="margin-top: 20px;">'+
-                '                <li id="market_buy_tab" style="width: 90px; margin-left: 20px; font-weight: bold;" align="center" class="active">'+
-                '                    <a style="padding: 5px 15px;" data-toggle="tab" href="#market_buy">Buy</a>'+
-                '                </li>'+
-                '                <li id="market_sell_tab" style="width: 90px; margin-right: 20px; font-weight: bold;" align="center">'+
-                '                    <a style="padding: 5px 15px;" data-toggle="tab" href="#market_sell">Sell</a>'+
-                '                </li>'+
-                '             </ul>'+
-                '             <div class="tab-content">'+
-                '                 <div id="market_buy" class="tab-pane fade in active">'+
-                '                     <div class="input-group" style="margin-left: 20px; margin-right: 20px; margin-top: 10px;">'+
-                '                         <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1">USD</span>'+
-                '                         <input type="number" step="0.01" class="form-control" style="font-size: 11px;" placeholder="0.00" aria-describedby="basic-addon1">'+
-                '                     </div>'+
-                '                     <div style="margin-left: 20px; margin-right: 20px; margin-top: 10px;">'+
-                '                         <button type="button" style="font-weight: bold" class="btn btn-block btn-success btn-sm">ORDER</button>'+
-                '                     </div>'+
-                '                 </div>'+
-                '                 <div id="market_sell" class="tab-pane fade">'+
-                '                     <div class="input-group" style=" margin-left: 20px; margin-right: 20px; margin-top: 10px;">'+
-                '                         <input type="number" step="0.000001" class="form-control" style="font-size: 11px;" placeholder="0.000000" aria-describedby="basic-addon1">'+
-                '                         <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1">BTC</span>'+
-                '                     </div>'+
-                '                     <div style="margin-left: 20px; margin-right: 20px; margin-top: 10px;">'+
-                '                         <button type="button" style="font-weight: bold" class="btn btn-block btn-danger btn-sm">ORDER</button>'+
-                '                     </div>'+
-                '                 </div>'+
-                '             </div>'+
-                '        </div>'+
-                '        <div id="limit" class="tab-pane fade">'+
+                '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing; margin: 0px; padding: 20px 0px 0px 0px; height: 100%;">'+
+                '    <div>'+
+                '        <div id="limit" class="tab-pane fade in active">'+
                 '            <div class="input-group" style=" margin-left: 5px; margin-right: 5px; margin-top: 10px;">'+
                 '                <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1">Amount</span>'+
                 '                <input id="limit_amount" type="number" step="0.01" class="form-control" style="font-size: 11px;" placeholder="0.000000" value="0.01" aria-describedby="basic-addon1">'+
-                '                <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1">BTC</span>'+
+                '                <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1" name="BASE_CURRENCY"></span>'+
                 '            </div>'+
                 '            <div class="input-group" style=" margin-left: 5px; margin-right: 5px; margin-top: 10px;">'+
                 '                <span class="input-group-addon" style="font-size: 11px; font-weight: bold;" id="basic-addon1">At Price</span>'+
@@ -232,7 +270,7 @@ body .lm_content{
                 '                </label>'+
                 '                <label class="radio-inline">'+
                 '                    <input type="radio" name="limit_tif_radio" id="tif4" value="FOK" disabled>FOK'+
-                '                </label>'+ 
+                '                </label>'+
                 '            </div>'+
                 '            <div class="input-group" style=" margin-left: 62px; margin-right: 62px; margin-top: 10px; font-size: 12px; font-weight: bold;" id="limit_side">'+
                 '                <label class="radio-inline">'+
@@ -246,9 +284,10 @@ body .lm_content{
                 '                <button type="button" id="limit_order_button" style="font-weight: bold" class="btn btn-block btn-primary btn-sm">ORDER</button>'+
                 '            </div>'+
                 '        </div>'+
-                '        <div id="stop" class="tab-pane fade">'+
-                '            <h3>Stop</h3>'+
-                '        </div>'+
+                '    </div>'+
+                '    <div class="btn-group btn-group-justified" role="group" aria-label="Cancel Buttons" style="margin: 10px 0px 0px 10px; padding-right: 20px;">'+
+                '        <a type="button" id="cancel_session" style="font-weight: bold; font-size: 10px;" class="btn btn-warning btn-sm">CANCEL SESSION</a>'+
+                '        <a type="button" id="cancel_all" style="font-weight: bold; font-size: 10px;" class="btn btn-danger btn-sm">CANCEL ALL</a>'+
                 '    </div>'+
                 '</div>'+
                 '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing; margin: 0px">'+
@@ -256,72 +295,77 @@ body .lm_content{
                 '</div>'
             );
 
-            setTimeout(function () {
-                var conn = null;
-                function connect() {
+            // Listener Handlers for Trade Actions
+            var onInstrumentUpdate =
+                function (instrument) {
+                    // ToDo: Refactor this function
+                    for (var i = 0; i < document.getElementsByName("BASE_CURRENCY").length; i++) {
+                        document.getElementsByName("BASE_CURRENCY")[i].innerHTML = instrument.base;
+                    }
+                };
+            var onBalanceUpdate =
+                function (balance) {
+                    $('#quoted_available').text(balance.quote.available.toFixed(4));
+                    $('#quoted_hold').text(balance.quote.hold.toFixed(4));
+                    $('#base_available').text(balance.base.available.toFixed(4));
+                    $('#base_hold').text(balance.base.hold.toFixed(4));
 
-                    var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8003"+'/ws';
-
-                    var ws = new WebSocket(webSocketUri);
-
-                    ws.onopen = function () {
-                        console.log("Requestingg Balance");
-                        ws.send('{"admin": "GetBalance"}');
-                        //ws.send('{"submit": {"side": "BUY", "price": 101, "qty": 0.1, "ioc": false, "quote": true} }');
-                    };
-
-                    ws.onmessage = function (msg) {
-                        console.log("got message");
-                        console.log(msg);
-                        try {
-                            var data = JSON.parse(msg.data);
-                            if (data.hasOwnProperty('balance'))
-                            {
-                                $('#balance_quoted').text(data.balance.quote.toFixed(4));
-                                $('#balance_base').text(data.balance.base.toFixed(4));
-                            } else {
-                                console.log('Recieved unhandled msg');
-                                console.log(msg);
-                            }
-                        }
-                        catch (err) {
-                            console.log(msg);
-                            console.log(err);
-                        };
-                    };
-
-                    ws.onclose = function () {
-                        console.log("CLosed!");
-                        setTimeout(function() { connect(); }, 5000);
-                    };
-
-                    $('#limit_order_button').on('click', function(e) {
-                        var ioc = false;
-                        var quote = true;
-                        if ($('#limit_tif input:checked').val() == 'IOC') {
-                            ioc = true;
-                            quote = false;
-                        }
-                        
-                        var msg = {
-                            'submit': {
-                                'price': parseFloat($('#limit_price').val()),
-                                'qty': parseFloat($('#limit_amount').val()),
-                                'side': $('#limit_side input:checked').val(),
-                                'ioc': ioc,
-                                'quote': quote
-                            }
-                        };
-                        console.log('Sending msg: '+JSON.stringify(msg));
-                        ws.send(JSON.stringify(msg));
-                    });
-
+                    // TODO: This is a crude way of calculating current account value...
+                    var top_ask_price = parseFloat($('#ap9').text());
+                    var account_value = balance.quote.available + balance.quote.hold + (balance.base.available * top_ask_price) + (balance.base.hold * top_ask_price);
+                    $('#account_value').text(account_value.toFixed(4));
                 };
 
-                connect();
+            goldenDash.eventHub.on('instrument_update', onInstrumentUpdate, this);
+            goldenDash.eventHub.on('balance_update', onBalanceUpdate, this);
 
 
-            }, 100);
+            // Add button handlerso
+            var addButtonHandlers =
+                function () {
+                    // Buttons that interact with the Click Trader Directly
+                    $('#cancel_session').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit('click_trader_message', JSON.stringify({ 'cancel_session': {} }));
+                        })
+
+
+                    $('#limit_order_button').on('click', function(e) {
+                        const price = parseFloat($('#limit_price').val());
+                        const qty = parseFloat($('#limit_amount').val());
+                        const time_in_force = $('#limit_tif input:checked').val();
+                        const ioc = (time_in_force == 'IOC') ? true : false;
+                        const quote = (time_in_force == 'IOC') ? false : true;
+
+                        var message =
+                            {
+                                'submit': {
+                                    'price': price,
+                                    'qty': qty,
+                                    'side': time_in_force,
+                                    'ioc': ioc,
+                                    'quote': quote
+                                }
+                            };
+
+                        goldenDash.eventHub.emit('click_trader_message', JSON.stringify(message));
+                    });
+
+                    $('#cancel_all').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit('click_trader_message', JSON.stringify({ 'cancel_all': {} }));
+                        });
+
+                    // Buttons that change the GUI interface
+                    $('#account_value').on('click', function(e) {
+                        // TODO: Crude calculations - need to find a better approach
+                        var top_ask_price = parseFloat($('#ap9').text());
+                        var account_value = parseFloat($('#quoted_available').text()) + parseFloat($('#quoted_hold').text()) + (parseFloat($('#base_available').text()) * top_ask_price) + (parseFloat($('#base_hold').text()) * top_ask_price);
+                        $('#account_value').text(account_value.toFixed(4));
+                    });
+                };
+
+            setTimeout(addButtonHandlers, 100);
         };
 
         var depthFeedComponent = function(container, state) {
@@ -330,7 +374,8 @@ body .lm_content{
                 return;
             }
 
-            console.log("Rendering Depth Feed Component");
+            // ToDo: Refactor this into seperate HTML chunks
+
             container.getElement().append(
                 '<div class="row" id="depth_feed" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
                 '    <div class="col-md-12">'+
@@ -362,240 +407,533 @@ body .lm_content{
             // Need to resize the height of the depth feed on resize of window to make sure scroll works
             $(window).on('resize', function() { $('#depth_feed_table').css('height', getHeight()); });
 
-            // Need to delay initialization of the depth feed because the HTML needs to render for the hooks to work.
-            // goldenDash.init() will generate the HTML
-            setTimeout(function () {
-                init_depth_feed(feed_depth);
 
-                var conn = null;
-                function connect() {
-                    var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
+            // Initialize the Depth Feed - creates the base html and adds on click handlers
+            var initDepthFeed =
+                function () {
+                    init_depth_feed(feed_depth);
 
-                    var ws = new WebSocket(webSocketUri);
+                    for(var i = 0; i < feed_depth; ++i)
+                    {
+                        $('#ap'+i).on('click', function(e) {
+                            var price = $('#'+e.target.id).text();
+                            $('#limit_price').val(parseFloat(price));
+                            $('#Side2').prop("checked", true);
+                        });
+                        $('#bp'+i).on('click', function(e) {
+                            var price = $('#'+e.target.id).text();
+                            $('#limit_price').val(parseFloat(price));
+                            $('#Side1').prop("checked", true);
+                        });
 
-                    ws.onopen = function () {
-                        set_conn_status(true);
-                    };
-                    
-                    var has_been_init = false;
-                    ws.onmessage = function (msg) {
-                        try {
-                            var data = JSON.parse(msg.data);
-                            if (data.hasOwnProperty('book_update'))
-                            {
-                                try {
-                                    update_depth_feed(data.book_update.book, feed_depth);
-                                } catch (err) {
-                                    console.log("Failed to render visualization properly.");
-                                    console.log(err);
-                                }
-                                if (! has_been_init)
-                                {
-                                    has_been_init = true;
-                                    $('#limit_price').val(parseFloat($('#bp0').text()));
-                                    for(var i = 0; i < feed_depth; ++i)
-                                    {
-                                        $('#ap'+i).on('click', function(e) {
-                                            var price = $('#'+e.target.id).text();
-                                            $('#limit_price').val(parseFloat(price));
-                                            $('#Side2').prop("checked", true);
-                                        });
-                                        $('#bp'+i).on('click', function(e) {
-                                            var price = $('#'+e.target.id).text();
-                                            $('#limit_price').val(parseFloat(price));
-                                            $('#Side1').prop("checked", true);
-                                        });
-
-                                        $('#aq'+i).on('click', function(e) {
-                                            var quantity = $('#'+e.target.id).text();
-                                            $('#limit_amount').val(parseFloat(quantity));
-                                            $('#Side2').prop("checked", true);
-                                        });
-                                        $('#bq'+i).on('click', function(e) {
-                                            var quantity = $('#'+e.target.id).text();
-                                            $('#limit_amount').val(parseFloat(quantity));
-                                            $('#Side1').prop("checked", true);
-                                        });
-                                    }
-                                }
-                            } else if (data.hasOwnProperty('ws_msg')) {
-                                // Ignoring these messages for now
-                            } else {
-                                console.log('Recieved unhandled msg');
-                            }
-                        }
-                        catch (err) {
-                            console.log(msg);
-                            console.log(err);
-                        };
-                    };
-
-                    ws.onclose = function () {
-                        set_conn_status(false);
-                        setTimeout(function() { connect(); }, 5000);
-                    };
+                        $('#aq'+i).on('click', function(e) {
+                            var quantity = $('#'+e.target.id).text();
+                            $('#limit_amount').val(parseFloat(quantity));
+                            $('#Side2').prop("checked", true);
+                        });
+                        $('#bq'+i).on('click', function(e) {
+                            var quantity = $('#'+e.target.id).text();
+                            $('#limit_amount').val(parseFloat(quantity));
+                            $('#Side1').prop("checked", true);
+                        });
+                    }
                 };
 
-                connect();
+            setTimeout(initDepthFeed, 100);
 
-            }, 100);
+            var onBookUpdate =
+                function (book, feed_depth) {
+                    update_depth_feed(book, feed_depth);
+                };
+
+            goldenDash.eventHub.on('book', onBookUpdate, this);
         };
-
-        var tickAggregatedComponent = function(container, state) {
-            // Check for local storage
-            if (!typeof window.localStorage) {
-                return;
-            }
-            console.log("Rendering Tick Aggregated Feed Component");
-            container.getElement().append(
-                '<div id="tick_aggregated_feed_component"></div>'
-            );
-            // Need to delay initialization of the depth feed because the HTML needs to render for the hooks to work.
-            // goldenDash.init() will generate the HTML
-            setTimeout(function () {
-                var conn = null;
-                function connect() {
-                    var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
-
-                    var ws = new WebSocket(webSocketUri);
-
-                    ws.onopen = function () {
-                        set_conn_status(true);
-                    };
-
-                    ws.onmessage = function (msg) {
-                        try {
-                            var data = JSON.parse(msg.data);
-                            if (data.hasOwnProperty('book_update'))
-                            {
-                                try {
-                                    //$('#tick_aggregated_feed_component').text(JSON.stringify(data.book_update));
-                                } catch (err) {
-                                    console.log("Failed to render visualization properly.");
-                                    console.log(err);
-                                }
-                            } else if (data.hasOwnProperty('ws_msg')) {
-                                // Ignoring these messages for now
-                            } else {
-                                console.log('Recieved unhandled msg');
-                            }
-                        }
-                        catch (err) {
-                            console.log(msg);
-                            console.log(err);
-                        };
-                    };
-
-                    ws.onclose = function () {
-                        set_conn_status(false);
-                        setTimeout(function() { connect(); }, 5000);
-                    };
-                };
-
-                //connect();
-            }, 100);
-
-        }
 
         var tradeHistoryComponent = function(container, state) {
             // Check for local storage
             if (!typeof window.localStorage) {
                 return;
             }
-            console.log("Rendering Tick History Feed Component");
+
+            // TODO: Use CSS for this
+            const trade_history_row = $('<div class="row" id="trade_history" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;"></div>');
+            const table_header = $('<div class="col-md-12">'+
+                                   '    <table style="font-size: 11px; color: white; width: 195px; border-bottom: 2px solid #2f3c44; height: 30px;">'+
+                                   '        <col width="50"> <col width="70"> <col width="45">'+
+                                   '            <tr>'+
+                                   '                <th style="text-align: right;">Price</th>'+
+                                   '                <th style="text-align: center;">Qty</th>'+
+                                   '                <th style="text-align: left;">Time</th>'+
+                                   '            </tr>'+
+                                   '    </table>'+
+                                   '</div>');
+            const tableBody = $('<div class="col-md-12" style="overflow: scroll;">'+
+                                '    <table id="trade_history_table" style="color: white; width: 195px;">'+
+                                '        <col width="50"> <col width="70"> <col width="45">'+
+                                '    </table>'+
+                                '</div>');
+
+            trade_history_row.append(table_header);
+            trade_history_row.append(tableBody);
+
+            container.getElement().append(trade_history_row);
+
+            const MAX_NUM_TRADES_TO_DISPLAY = 100;
+            var num_trades_displayed = 0;
+
+            var displayTrades =
+                function(trades) {
+                    for (var i = 0; i < trades.length; i++) {
+                        ++num_trades_displayed;
+
+                        const trade = trades[i];
+
+                        const price_color = (trade.aggressor == 'Side.BID') ? colors.price.bids : colors.price.asks;
+
+                        const price = parseFloat(trade.price).toFixed(2);
+                        const qty = parseFloat(trade.qty).toFixed(6);
+
+                        const time_color = '#777f85';
+                        var time = new Date();
+                        const pretty_time = ("0"+time.getHours()).slice(-2)+":"+("0"+time.getMinutes()).slice(-2)+":"+("0"+time.getSeconds()).slice(-2);
+
+                        $('#trade_history_table').prepend(
+                            '<tr>'+
+                            '    <td style="text-align: right; color:'+price_color+'; font-weight:">'+price+'</td>' +
+                            '    <td style="text-align: center;">'+qty+'</td>' +
+                            '    <td style="text-align: left; color: '+time_color+';">'+pretty_time+'</td>' +
+                            '</tr>'
+                        );
+                    }
+
+                    while (num_trades_displayed > MAX_NUM_TRADES_TO_DISPLAY) {
+                        var table = document.getElementById('trade_history_table');
+                        table.deleteRow(num_trades_displayed - 1);
+                        --num_trades_displayed;
+                    }
+                };
+
+            goldenDash.eventHub.on('trades', displayTrades);
+        }
+
+        var messagingComponent = function(container, state) {
+            // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            var tab_btn_container = $('<div class="tab-btn-first"></div>');
+            var refresh_button = $('<button class="btn btn-default btn-xs smfont" title="Trim Messages"><span class="glyphicon glyphicon-scissors"></span></button>');
+            refresh_button.click(
+                function() {
+                    $("#messaging_table").find('tbody').find('tr').slice(20).remove();
+                }
+            );
+            tab_btn_container.append(refresh_button);
+
+            // Add the refresh button whenever a tab is created
+            container.on( 'tab', function( tab ){
+                tab.element.append( tab_btn_container );
+            });
+
             container.getElement().append(
-                '<div class="row" id="trade_history" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
+                '<div class="row" id="messaging" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
                 '    <div class="col-md-12">'+
-                '        <table style="font-size: 11px; color: white; width: 195px; border-bottom: 2px solid #2f3c44; height: 30px;">'+
-                '            <col width="50"> <col width="70"> <col width="45">'+
-                '                <tr>'+
-                '                     <th style="text-align: right;">Price</th>'+
-                '                     <th style="text-align: center;">Qty</th>'+
-                '                     <th style="text-align: left;">Time</th>'+
-                '                 </tr>'+
+                '        <table style="font-size: 11px; color: white; width: 100%;  border-bottom: 2px solid #2f3c44; height: 30px;">'+
+                '            <col width="125"> <col width="100"> <col>'+
+                '            <tr>'+
+                '                <th style="text-align: center;">TimeStamp</th>'+
+                '                <th style="text-align: center;">Type</th>'+
+                '                <th style="text-align: left;">Msg</th>'+
+                '            </tr>'+
                 '        </table>'+
                 '    </div>'+
                 '    <div class="col-md-12" style="overflow: scroll;">'+
-                '        <table id="trade_history_table" style="color: white; width: 195px;">'+
-                '            <col width="50"> <col width="70"> <col width="45">'+
+                '        <table id="messaging_table" style="color: white; width: 100%;">'+
+                '            <col width="125"> <col width="100"> <col>'+
                 '        </table>'+
-
+                '    </div>'+
                 '</div>'
             );
-            // Need to delay initialization of the depth feed because the HTML needs to render for the hooks to work.
-            // goldenDash.init() will generate the HTML
-            setTimeout(function () {
-                var conn = null;
-                function connect() {
-                    var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
 
-                    var ws = new WebSocket(webSocketUri);
+            var displayMessages =
+                function (actions) {
+                    const time_stamp = (new Date).toISOString().replace(/z|t/gi,' ').trim();
 
-                    ws.onopen = function () {
-                        set_conn_status(true);
-                    };
-
-                    var trade_history_size = 0;
-                    ws.onmessage = function (msg) {
-                        try {
-                            var data = JSON.parse(msg.data);
-                            if (data.hasOwnProperty('book_update'))
-                            {
-                                try {
-                                    var trades = data.book_update.trades;
-                                    for (var i = 0; i < trades.length; i++) {
-                                        ++trade_history_size;
-                                        var time = new Date();
-                                        var prettyTime = ("0"+time.getHours()).slice(-2)+":"+("0"+time.getMinutes()).slice(-2)+":"+("0"+time.getSeconds()).slice(-2);
-                                        var color = colors.price.asks;
-                                        if (trades[i].aggressor == "BID") {
-                                            color = colors.price.bids;
-                                        }
-                                        $('#trade_history_table').prepend(
-                                            '<tr>'+
-                                            '    <td style="text-align: right; color:'+color+'; font-weight: bold;">'+parseFloat(trades[i].price).toFixed(2)+'</td>' +
-                                            '    <td style="text-align: center;">'+parseFloat(trades[i].qty).toFixed(6)+'</td>' +
-                                            '    <td style="text-align: left; color: #777f85;">'+prettyTime+'</td>' +
-                                            '</tr>'
-                                        );
-                                    }
-                                    while (trade_history_size > 100) {
-                                        var table = document.getElementById('trade_history_table');
-                                        table.deleteRow(trade_history_size - 1);
-                                        --trade_history_size;
-                                    }
-                                } catch (err) {
-                                    console.log("Failed to render visualization properly.");
-                                    console.log(err);
-                                }
-                            } else if (data.hasOwnProperty('ws_msg')) {
-                                // Ignoring these messages for now
-                            } else {
-                                console.log('Recieved unhandled msg');
+                    var color = '#ced2d5';
+                    var translated_message = ""
+                    switch(actions.msg_type) {
+                        case 'submit':
+                            var s = actions.msg.submit;
+                            translated_message = "Price: " + s['price'] + " | Qty: " + s.qty + " | Side: " + s.side + " | IOC: " + s.ioc + " | Quote: " + s.quote;
+                            break;
+                        case 'submit_ack':
+                        case 'on_complete':
+                            color = colors.logging.good;
+                            var a = actions.msg;
+                            translated_message = "Price: " + a.price + " | Side: " + a.side + " | Rem Qty: " + a.remaining_qty + " | OrderID: " + a.order_id;
+                            break;
+                        case 'submit_nack':
+                        case 'limit_error':
+                        case 'internal_nack':
+                        case 'order_error':
+                        case 'cancel_nack':
+                        case 'cancel_all_nack':
+                            color = colors.logging.bad;
+                            var e = actions.msg;
+                            translated_message = "Error: " + e.error + " | Trigger: " + e.trigger.msg + " | Args: " + JSON.stringify(e.trigger.args);
+                            break;
+                        case 'on_fill':
+                            color = colors.logging.good;
+                            var f = actions.msg;
+                            translated_message = "Filled Qty: " + f.filled_qty + " | Order - Price: " + f.order.price + " - Side: " + f.order.side + " - Rem Qty: " + f.order.remaining_qty + " - OrderID: " + f.order.order_id;
+                            break;
+                        case 'open_orders':
+                            var pending = 0;
+                            var open = 0;
+                            var active = 0;
+                            for (var i in actions.msg) {
+                                if (actions.msg[i]['status'] == 'pending') { ++pending; }
+                                else if (actions.msg[i]['status'] == 'open') { ++open; }
+                                else if (actions.msg[i]['status'] == 'active') { ++active; }
                             }
-                        }
-                        catch (err) {
-                            console.log(msg);
-                            console.log(err);
-                        };
-                    };
+                            translated_message = "Open Orders: " + actions.msg.length + " | Open: " + open + " | Pending: " + pending + " | active: " + active;
+                            break;
+                        case 'fills':
+                            translated_message = "Fills found: " + actions.msg.length;
+                            break;
+                        default:
+                            translated_message = "Unhandled Msg: " + JSON.stringify(actions);
+                            break;
+                    }
 
-                    ws.onclose = function () {
-                        set_conn_status(false);
-                        setTimeout(function() { connect(); }, 5000);
+                    $('#messaging_table').prepend(
+                        '<tr>'+
+                        '    <td style="text-align: right;">'+time_stamp+'</td>' +
+                        '    <td style="color: '+color+'; padding-left: 10px; text-align: left;">'+actions.msg_type+'</td>' +
+                        '    <td style="text-align: left;">'+translated_message+'</td>' +
+                        '</tr>'
+                    );
+                };
+
+            goldenDash.eventHub.on('messages', displayMessages);
+        };
+
+        var openOrdersComponent = function(container, state) {
+             // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            var counter = $('<div class="messageCounter smfont">Total: 0<div>');
+            var tab_btn_container = $('<div class="tab-btn-first"></div>');
+            var refresh_button = $('<button class="btn btn-default btn-xs smfont" title="Refresh"><span class="glyphicon glyphicon-transfer"></span></button>');
+            refresh_button.click(
+                function() {
+                    goldenDash.eventHub.emit('click_trader_message', '{"admin": "ListOrders"}');
+                }
+            );
+            tab_btn_container.append(refresh_button);
+
+            // Add the counter element and refresh button whenever a tab is created
+            container.on( 'tab', function( tab ){
+                tab.element.append( counter );
+                tab.element.append( tab_btn_container );
+            });
+
+            container.getElement().append(
+                '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
+                '    <div class="col-md-12">'+
+                '        <table style="width: 100%; margin-left: 10px; margin-right: 10px;">'+
+                '            <thead >'+
+                '                <tr style="font-size: 11px; font-weight: bold; border-bottom: 2px solid #2f3c44; height: 30px;">'+
+                '                    <th>Product</th>'+
+                '                    <th>Size</th>'+
+                '                    <th>Filled</th>'+
+                '                    <th>Price</th>'+
+                '                    <th>Fees</th>'+
+                '                    <th>Time</th>'+
+                '                    <th>Status</th>'+
+                '                    <th>Executed Value</th>'+
+                '                    <th>TIF</th>'+
+                '                    <th>Type</th>'+
+                '                    <th>Post Only</th>'+
+                '                    <th>Settled</th>'+
+                '                </tr>'+
+                '            </thead>'+
+                '            <tbody id="open_orders_table" style="font-weight: normal;">'+
+                '            </tbody>'+
+                '        </table>'+
+                '    </div>'+
+                '    </div>'+
+                '</div>'
+            );
+
+            var onOpenOrders =
+                function (open_orders) {
+                    const messages = open_orders.msg;
+
+                    // Update the counter button at the top
+                    counter.text('Total: ' + messages.length);
+
+                    // Update the table display
+                    $('#open_orders_table').html("");
+
+                    for (var i in messages) {
+                        const order = messages[i];
+
+                        // Style
+                        const price_color = (order['side'] == 'buy') ? colors.price.bids : colors.price.asks;
+                        const fees_color = (parseFloat(order['fees']) > 0.0) ? colors.logging.bad : '#ced2d5';
+
+                        // Message Values
+                        const size = parseFloat(order['size']).toFixed(4);
+                        const filled_size = parseFloat(order['filled_size']).toFixed(4);
+                        const price = parseFloat(order['price']).toFixed(4);
+                        const filled_fees = parseFloat(order['fill_fees']).toFixed(4);
+                        const executed_value = parseFloat(order['executed_value']).toFixed(4);
+
+                        $('#open_orders_table').append(
+                            '<tr id="'+order['id']+'">'+
+                            '    <td>'+order['product_id']+'</td>'+
+                            '    <td>'+size+'</td>'+
+                            '    <td>'+filled_size+'</td>'+
+                            '    <td style="color: '+price_color+'">'+price+'</td>'+
+                            '    <td style="color: '+fees_color+'">'+filled_fees+'</td>'+
+                            '    <td>'+order['created_at']+'</td>'+
+                            '    <td>'+order['status']+'</td>'+
+                            '    <td>'+executed_value+'</td>'+
+                            '    <td>'+order['time_in_force']+'</td>'+
+                            '    <td>'+order['type']+'</td>'+
+                            '    <td>'+order['post_only']+'</td>'+
+                            '    <td>'+order['settled']+'</td>'+
+                            '</tr>'
+                        );
+                    }
+                };
+
+            goldenDash.eventHub.on('open_orders', onOpenOrders);
+        };
+
+        var fillsComponent = function(container, state) {
+             // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            var tab_btn_container = $('<div class="tab-btn-first"></div>');
+            var refresh_button = $('<button class="btn btn-default btn-xs smfont" title="Refresh"><span class="glyphicon glyphicon-transfer"></span></button>');
+            refresh_button.click(
+                function() {
+                    goldenDash.eventHub.emit('click_trader_message', '{"admin": "GetFills"}');
+                }
+            );
+            tab_btn_container.append(refresh_button);
+
+            // Add the refresh button whenever a tab is created
+            container.on( 'tab', function( tab ){
+                tab.element.append( tab_btn_container );
+            });
+
+            container.getElement().append(
+                '<div class="row" style="color: #ced2d5; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
+                '    <div class="col-md-12">'+
+                '        <table style="width: 100%; margin-left: 5px; marginn-right: 5px;">'+
+                '            <thead >'+
+                '                <tr style="font-size: 11px; font-weight: bold; border-bottom: 2px solid #2f3c44; height: 30px;">'+
+                '                    <th>Product</th>'+
+                '                    <th>Size</th>'+
+                '                    <th>Price</th>'+
+                '                    <th>Fees</th>'+
+                '                    <th>Time</th>'+
+                '                    <th>Settled</th>'+
+                '                    <th>Cost</th>'+
+                '                </tr>'+
+                '            </thead>'+
+                '            <tbody id="fills_table" style="font-weight: normal;">'+
+                '            </tbody>'+
+                '        </table>'+
+                '    </div>'+
+                '    </div>'+
+                '</div>'
+            );
+
+            var onFills =
+                function (actions) {
+                    actions.msg.sort(
+                        function(a,b){
+                            return new Date(a['created_at']) - new Date(b['created_at']);
+                        }
+                    );
+
+                    for (var i in actions.msg) {
+                        const fill = actions.msg[i];
+
+                        const price_color = (fill['side'] == 'buy') ? colors.price.bids : colors.price.asks;
+                        const fees_color = (parseFloat(fill['fee']) > 0.0) ? colors.logging.bad : '#ced2d5';
+
+                        const size = parseFloat(fill['size']).toFixed(4);
+                        const price = parseFloat(fill['price']).toFixed(4);
+                        const fee = parseFloat(fill['fee']).toFixed(4);
+                        const cost = (parseFloat(fill['price'])*parseFloat(fill['size']) + parseFloat(fill['fee'])).toFixed(4);
+                        $('#fills_table').prepend(
+                            '<tr id="'+fill['order_id']+'">'+
+                            '    <td>'+fill['product_id']+'</td>'+
+                            '    <td>'+size+'</td>'+
+                            '    <td style="color: '+price_color+'">'+price+'</td>'+
+                            '    <td style="color: '+fees_color+'">'+fee+'</td>'+
+                            '    <td>'+fill['created_at']+'</td>'+
+                            '    <td>'+fill['settled']+'</td>'+
+                            '    <td>'+cost+'</td>'+
+                            '</tr>'
+                        );
+                    }
+                };
+
+            goldenDash.eventHub.on('fills', onFills);
+        };
+        goldenDash.registerComponent('trade_actions', tradeActionsComponent);
+        goldenDash.registerComponent('depth_feed', depthFeedComponent);
+        goldenDash.registerComponent('signals', function(container, state) {});
+        goldenDash.registerComponent('trade_history', tradeHistoryComponent);
+        goldenDash.registerComponent('messaging', messagingComponent);
+        goldenDash.registerComponent('open_orders', openOrdersComponent);
+        goldenDash.registerComponent('fills', fillsComponent);
+        goldenDash.registerComponent('placeholder', function(container, state) {});
+
+        goldenDash.init();
+
+        // Data Emitters:
+        var clickTraderConnect =
+            function() {
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8003"+'/ws';
+                var ws = new WebSocket(webSocketUri);
+
+                ws.onopen = function () {
+                    ws.send('{"admin": "GetBalance"}');
+                    ws.send('{"admin": "ListOrders"}');
+                    ws.send('{"admin": "GetFills"}');
+
+                    // TODO: Make use of this broadcast
+                    goldenDash.eventHub.emit('socket_open', 'ClickTrader');
+                };
+
+                ws.onmessage = function (msg) {
+                    try {
+                        var data = JSON.parse(msg.data);
+                        if (data.hasOwnProperty('balance'))
+                        {
+                            goldenDash.eventHub.emit('balance_update', data.balance);
+                            goldenDash.eventHub.emit('instrument_update', data.instrument);
+                        } else if (data.hasOwnProperty('actions')) {
+                            var data = JSON.parse(msg.data);
+                            if (data.actions.msg_type == 'balance') {
+                                goldenDash.eventHub.emit('balance_update', data.actions.msg);
+                            } else {
+                                goldenDash.eventHub.emit('messages', data.actions);
+
+                                switch(data.actions.msg_type) {
+                                    case 'open_orders':
+                                        goldenDash.eventHub.emit('open_orders', data.actions);
+                                        break;
+                                    case 'fills':
+                                        goldenDash.eventHub.emit('fills', data.actions);
+                                        break;
+                                    default:
+                                        break;
+                                };
+                            }
+                        } else {
+                            var data = JSON.parse(msg.data);
+                            console.log("Unhandled message over socket.");
+                            console.log(data);
+                        }
+                    }
+                    catch (err) {
+                        console.log(err);
                     };
                 };
 
-                connect();
-            }, 100);
-        }
+                ws.onclose =
+                    function () {
+                        // ToDo: Make use of this broadcast
+                        goldenDash.eventHub.emit('socket_closed', 'ClickTrader');
 
-        goldenDash.registerComponent('trade_actions', tradeActionsComponent);
-        goldenDash.registerComponent('depth_feed', depthFeedComponent);
-        goldenDash.registerComponent('tick_aggregated_feed', tickAggregatedComponent);
-        goldenDash.registerComponent('trade_history', tradeHistoryComponent);
-        goldenDash.registerComponent('fills', function(container, state) {});
+                        console.log("Closed!");
+                        setTimeout(
+                            function() {
+                                clickTraderConnect();
+                            }, 5000);
+                    };
 
-        goldenDash.init();
+                var onMessageToClickTrader =
+                    function (message) {
+                        ws.send(message);
+                    };
+
+                goldenDash.eventHub.on('click_trader_message', onMessageToClickTrader);
+
+            };
+
+        var depthFeedConnect =
+            function() {
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
+
+                var ws = new WebSocket(webSocketUri);
+
+                ws.onopen = function () {
+                    // TODO: remove this and make sure nothing depends on it
+                    set_conn_status(true);
+
+                    // TODO: Make use of this broadcast
+                    goldenDash.eventHub.emit('socket_open', 'DepthFeed');
+                };
+
+                ws.onmessage = function (msg) {
+                    try {
+                        var data = JSON.parse(msg.data);
+                        var trades = data.book_update.trades;
+                        goldenDash.eventHub.emit('trades', trades);
+
+                        if (data.hasOwnProperty('book_update'))
+                        {
+                            try {
+                                goldenDash.eventHub.emit('book', data.book_update.book, feed_depth);
+                                //update_depth_feed(data.book_update.book, feed_depth);
+                            } catch (err) {
+                                console.log("Failed to render visualization properly.");
+                                console.log(err);
+                            }
+                        } else if (data.hasOwnProperty('ws_msg')) {
+                            // Ignoring these messages for now
+                        } else {
+                            console.log('Recieved unhandled msg');
+                        }
+                    }
+                    catch (err) {
+                        console.log(msg);
+                        console.log(err);
+                    };
+                };
+
+                ws.onclose = function () {
+                    // ToDo: Make use of this broadcast
+                    goldenDash.eventHub.emit('socket_closed', 'DepthFeed');
+
+                    console.log("Closed!");
+
+                    // TODO: Remove
+                    set_conn_status(false);
+                    setTimeout(
+                        function() {
+                            depthFeedConnect();
+                        }, 5000);
+                };
+
+            };
+
+        depthFeedConnect();
+        clickTraderConnect();
+
     </script>
 </html>

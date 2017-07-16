@@ -1,35 +1,48 @@
 #!/usr/bin/env python3
+"""GDAX Market Data Recorder
+
+Usage:
+    ./recorder.py <INSTRUMENT> <DEPTH> <SLEEP_INT> <OUTPUT_DIR>
+"""
 
 import asyncio
+import docopt
 import json
+import logbook
 import logging
 import os
 import time
 
-from convex.common.instrument import make_btc_usd, make_eth_usd, make_ltc_usd
-from convex.exchanges import ExchangeID
+from convex.common.instrument import instruments_lookup
+from convex.common.utils.conversions import humanize_bytes
 from convex.market_data import Subscriber as MDSubscriber
 from convex.exchanges import gdax
+
+log = logbook.Logger('EXAMPLE')
 
 LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s | %(message)s | [%(module)s] [%(funcName)s]'
 logging.basicConfig(format= LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
 
-InstrumentsLookup = {
-                        'BTC' : make_btc_usd(ExchangeID.GDAX),
-                        'ETH' : make_eth_usd(ExchangeID.GDAX),
-                        'LTC' : make_ltc_usd(ExchangeID.GDAX)
-                    }
-
-async def poll_subscriber(sub, feed_params):
+async def poll_subscriber(sub, filename, feed_params):
     await asyncio.sleep(2)
-    today = '{}.{}.{}'.format(time.strftime('%Y-%m-%d %H:%M:%S'), 'md', 'json')
-    output_file = open('{}{}'.format(feed_params['output_dir'],
-                                     today),
-                       'a')
+
+    output_file = open(filename, 'a')
+
+    logging.info("Writing output to file: {}".format(filename))
+
     while True:
         update = await sub.fetch()
-        output_file.write(json.dumps(update.dump(feed_params['depth'])))
+        output_file.write(json.dumps(update.dump(feed_params['depth']))+'\n')
         await asyncio.sleep(feed_params['sleep_int'])
+
+async def file_watcher(filename):
+    await asyncio.sleep(5)
+
+    while True:
+        size_mb = humanize_bytes(os.path.getsize(filename))
+
+        logging.info("File Size: {}".format(size_mb))
+        await asyncio.sleep(60)
 
 class Recorder:
     def __init__(self, loop=None):
@@ -44,14 +57,20 @@ class Recorder:
 
     async def run(self, feed_params):
         gw = gdax.MDGateway(loop = self.loop)
-        sub = MDSubscriber(InstrumentsLookup[feed_params['instrument']], gateway=gw)
+        sub = MDSubscriber(instruments_lookup[feed_params['instrument']], gateway=gw)
+
+        today = '{}.{}.{}'.format(time.strftime('%Y-%m-%d %H:%M:%S'), 'md', 'json')
+        filename = '{}{}-{}'.format(feed_params['output_dir'], feed_params['instrument'], today)
 
         tasks = [
                     asyncio.ensure_future(
                         self.launch_gw(gw)
                     ),
                     asyncio.ensure_future(
-                        poll_subscriber(sub, feed_params)
+                        poll_subscriber(sub, filename, feed_params)
+                    ),
+                    asyncio.ensure_future(
+                        file_watcher(filename)
                     )
                 ]
         self._future_tasks = asyncio.ensure_future(asyncio.gather(*tasks, loop=self.loop))
@@ -61,17 +80,21 @@ class Recorder:
         except asyncio.CancelledError:
             pass
 
-def main():
+def main(args):
     feed_params = {
-                      'depth': 10,
-                      'sleep_int': 0.5,
-                      'instrument': 'BTC',
-                      'output_dir': 'data/'
+                      'depth': int(args['<DEPTH>']),
+                      'sleep_int': float(args['<SLEEP_INT>']),
+                      'instrument': args['<INSTRUMENT>'],
+                      'output_dir': args['<OUTPUT_DIR>']
                   }
+    logging.info("Starting Market Data Recorder for {}".format(feed_params['instrument']))
+    logging.info("Params: {}".format(feed_params))
+
     loop = asyncio.get_event_loop()
 
     recorder = Recorder(loop)
     loop.run_until_complete(recorder.run(feed_params))
 
 if __name__ == '__main__':
-    main() 
+    args = docopt.docopt(__doc__)
+    main(args)

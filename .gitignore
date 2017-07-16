@@ -90,3 +90,10 @@ ENV/
 
 # PyCharm Files
 .idea/
+
+# Audit Files
+*.audit
+
+# Swap files
+.*.swp
+.*.swo

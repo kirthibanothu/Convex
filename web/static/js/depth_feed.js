@@ -11,6 +11,11 @@ var colors = {
                  "price": {
                      'asks': '#e74c3c',
                      'bids': '#468966'
+                 },
+                 "logging": {
+                     'bad': '#e74c3c',
+                     'good': '#468960',
+                     'neutral': '#1e2b34'
                  }
              };
 

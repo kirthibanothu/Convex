@@ -48,7 +48,6 @@ class OrderEntryGateway(gateway.Gateway):
         self._ready_evt = asyncio.Event()
 
     async def launch(self):
-        await gateway.Gateway.cancel_all(self)
         self._update_balances()
         self._ready_evt.set()
 
@@ -67,11 +66,10 @@ class OrderEntryGateway(gateway.Gateway):
         return ExchangeID.GDAX
 
     async def get_balance(self, currency):
-        if not self._balances:
-            if self._balance_task:
-                self._balance_task.cancel()
-                self._balance_task = None
-            await self._fetch_balances()
+        if self._balance_task:
+            self._balance_task.cancel()
+            self._balance_task = None
+        await self._fetch_balances()
         return self._balances.get(currency, 0)
 
     async def send_order(self, session, side, price, qty, ioc, post_only):
@@ -89,9 +87,12 @@ class OrderEntryGateway(gateway.Gateway):
 
         log.info('Submitting order: {}', req)
         res = await self._post('/orders', req)
-
         try:
             order_id = res['id']
+            status = res['status']
+            if (status == 'rejected'):
+                message = res.get('reject_reason')
+                raise SubmitNack(message)
         except KeyError:
             message = res.get('message') or str(res)
             raise SubmitNack(message)
@@ -135,6 +136,16 @@ class OrderEntryGateway(gateway.Gateway):
         else:
             raise CancelNack(None, res['message'])
 
+    async def exch_orders(self):
+        return await self._get('/orders')
+
+    async def get_fill(self, order_id):
+        return await self._get('/fills?order_id={}'.format(order_id))
+
+    async def get_fills(self):
+        fills = await self._get('/fills')
+        return fills
+
     def _update_balances(self):
         self._balances = None
         if self._balance_task:
@@ -145,7 +156,10 @@ class OrderEntryGateway(gateway.Gateway):
     async def _fetch_balances(self):
         accounts = await self._get('/accounts')
         self._balances = {
-            a['currency']: make_qty(a['available']) for a in accounts
+            a['currency']: {
+                'available': make_qty(a['available']),
+                'hold': make_qty(a['hold'])
+            } for a in accounts
         }
 
         log.info('Updated balances: {}',

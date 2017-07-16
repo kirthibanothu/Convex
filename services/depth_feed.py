@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
+"""Depth Feed
+
+Usage:
+    ./depth_feed.py <IP> <DEPTH> <SLEEP_INT> <INSTRUMENT>
+"""
 
 import asyncio
+import docopt
 import json
 import logging
 import os
@@ -8,8 +14,7 @@ import os
 import aiohttp
 import aiohttp.web
 
-from convex.common.instrument import make_btc_usd, make_eth_usd, make_ltc_usd
-from convex.exchanges import ExchangeID
+from convex.common.instrument import instruments_lookup
 from convex.market_data import Subscriber as MDSubscriber
 from convex.exchanges import gdax
 
@@ -97,8 +102,10 @@ class DepthFeed:
     async def run(self, web_params, feed_params):
         await self.start_web_server()
 
+        instrument = instruments_lookup[feed_params['instrument']]
+
         gw = gdax.MDGateway(loop = self.loop)
-        sub = MDSubscriber(make_eth_usd(ExchangeID.GDAX), gateway=gw)
+        sub = MDSubscriber(instrument, gateway=gw)
 
         tasks = [
                     asyncio.ensure_future(
@@ -120,19 +127,28 @@ class DepthFeed:
         except asyncio.CancelledError:
             pass
 
-def main():
+def main(args):
     # Rapid Development Tip:
     #   Use Browser-Sync as follows for GUI devel:
     #   (will auto refresh browser on file change)
     #       $browser-sync start --proxy http://localhost:5001/ --files="templates/**" --port=5002
 
-    # TODO: Parameterize the following:
-    web_params = {'ip': '0.0.0.0', 'port': 8001}
-    feed_params = {'depth': 10, 'sleep_int': 5}
+    web_params = {
+                    'ip': args['<IP>'],
+                    'port': 8001
+                 }
+
+    feed_params = {
+                    'depth': int(args['<DEPTH>']),
+                    'sleep_int': float(args['<SLEEP_INT>']),
+                    'instrument': args['<INSTRUMENT>']
+                  }
+
     loop = asyncio.get_event_loop()
 
     depth_feed = DepthFeed(loop)
     loop.run_until_complete(depth_feed.run(web_params, feed_params))
 
 if __name__ == '__main__':
-    main()
+    args = docopt.docopt(__doc__)
+    main(args)
