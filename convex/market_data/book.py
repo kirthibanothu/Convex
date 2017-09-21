@@ -27,7 +27,11 @@ class Level:
 
     def dump(self):
         """Dump information as dictionary"""
-        return {'price': float(self.price), 'qty': float(self.qty), 'orders': self.orders}
+        return {
+            'price': str(self.price),
+            'qty': str(self.qty),
+            'orders': self.orders,
+        }
 
 
 class Book:

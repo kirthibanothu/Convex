@@ -41,8 +41,6 @@ class MDGateway(market_data.Gateway):
             'match': self._handle_match_message,
             'received': lambda m: False
         }
-        self._is_running = True
-        self._shutdown_evt = asyncio.Event(loop=loop)
 
     def subscribe(self, instrument):
         if instrument != make_btc_usd(ExchangeID.GDAX) and instrument != make_ltc_usd(ExchangeID.GDAX) and instrument != make_eth_usd(ExchangeID.GDAX):
@@ -65,19 +63,15 @@ class MDGateway(market_data.Gateway):
         tasks = [
             self._consume_messages(),
             self._poll_endpoint(self._ws_endpoint),
-            self._shutdown_evt.wait()
         ]
-        done, pending = await asyncio.wait(tasks,
-                                           loop=self.loop,
-                                           return_when=asyncio.FIRST_COMPLETED)
+        try:
+            await asyncio.gather(*tasks, loop=self.loop)
+        except asyncio.CancelledError:
+            pass
         log.notice('Shutting down')
-        for p in pending:
-            p.cancel()
 
     def request_shutdown(self):
         log.notice('Shutdown requested')
-        self._is_running = False
-        self._shutdown_evt.set()
 
     async def _poll_queue(self):
         m0 = await self._message_queue.get()
@@ -88,15 +82,19 @@ class MDGateway(market_data.Gateway):
         return messages
 
     async def _consume_messages(self):
-        while self._is_running:
-            messages = await self._poll_queue()
-            has_update = False
-            for m in map(json.loads, messages):
-                new_update = await self._on_message(m)
-                has_update = has_update or new_update
-            if has_update:
-                self.set_book(self._instrument, self._sequence, self._book)
-                self.publish()
+        try:
+            while True:
+                messages = await self._poll_queue()
+                has_update = False
+                for m in map(json.loads, messages):
+                    new_update = await self._on_message(m)
+                    has_update = has_update or new_update
+                if has_update:
+                    self.set_book(self._instrument, self._sequence, self._book)
+                    self.publish()
+        except asyncio.CancelledError:
+            log.notice('Canceled consume_messages')
+            pass
 
     async def _poll_endpoint(self, endpoint):
         async def send_subscribe(sock):
@@ -105,18 +103,20 @@ class MDGateway(market_data.Gateway):
             log.info('Subscribing: {}', message)
             await sock.send(message)
 
+        sock = await websockets.connect(endpoint, loop=self.loop)
         try:
-            async with websockets.connect(endpoint, loop=self.loop) as sock:
-                try:
-                    await send_subscribe(sock)
-                    while self._is_running:
-                        data = await sock.recv()
-                        self._message_queue.put_nowait(data)
-                        log.debug('Push size {}', self._message_queue.qsize())
-                except asyncio.CancelledError:
-                    log.notice('Canceled poll_endpoint')
-        except:
+            await send_subscribe(sock)
+            while True:
+                data = await sock.recv()
+                self._message_queue.put_nowait(data)
+                log.debug('Push size {}', self._message_queue.qsize())
+        except asyncio.CancelledError:
+            log.notice('Canceled poll_endpoint')
+        except Exception:
             log.exception()
+        finally:
+            log.notice('Closing websocket...')
+            await sock.close()
 
     async def _on_message(self, message):
         recv_seq = int(message['sequence'])
