@@ -5,6 +5,7 @@ from .update import Update
 from .status import Status
 from .subscriber import Subscriber
 from .gateway import Gateway
+from .playback import Playback
 
 __all__ = [
     # Common-use
@@ -14,4 +15,6 @@ __all__ = [
     # Producer-use
     'OrderBasedBook',
     'OrderBasedLevel',
+    # Playback
+    'Playback'
 ]
