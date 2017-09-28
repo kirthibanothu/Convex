@@ -78,6 +78,9 @@ class Update:
 
         return self._dump_update(book, trades)
 
+    def show_top(self):
+       return self._book.show(1)
+
     def show(self, max_depth=5):
         res = '{}: {} - {}\n'.format(
                 self._instrument,
@@ -86,7 +89,7 @@ class Update:
         trades_before = self.trades_before_book()
         trades_after = self.trades_after_book()
         res += self._book.show(max_depth)
-        res += 'Before book -\n'
+        res += '\nBefore book -\n'
         for trade in trades_before:
             res += '{}\n'.format(trade)
         res += 'After book -\n'

@@ -15,6 +15,9 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="//golden-layout.com/files/latest/js/goldenlayout.min.js"></script>
 
+        <!-- JSON Editor -->
+        <script type="text/javascript" src="/static/js/jsoneditor.min.js"></script>
+
         <!-- Note: The order of these headers affects the coloring of the depth feed. Don't change this!-->
         <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
         <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
@@ -83,6 +86,21 @@
             .smfont {
                 font-size: 10px;
             }
+
+            /* overriding styling in the json editor */
+            .editor > div > h3 > span {
+                color: #fff;
+            }
+            h3 {
+                font-size: 14px;
+            }
+            h3 > div >.btn-default {
+                padding: 2px 8px;
+                font-size: 12px;
+                line-height: 1.5;
+                border-radius: 3px;
+            }
+
         </style>
     </head>
     <body>
@@ -138,9 +156,9 @@
                         title: 'Fills'
                     }, {
                         type: 'component',
-                        componentName: 'placeholder',
+                        componentName: 'messaging',
                         componentState: { },
-                        title: 'Placeholder'
+                        title: 'Messaging'
 
                     }],
                     width: Math.ceil((base_measurements.depth_feed.width/getWidth())*100),
@@ -166,15 +184,24 @@
                         content:[
                         {
                             type: 'component',
-                            componentName: 'messaging',
-                            componentState: { },
-                            title: 'Messaging'
-                        },
-                        {
-                            type: 'component',
                             componentName: 'open_orders',
                             componentState: { },
                             title: 'Open Orders'
+                        },
+                        {
+                            type: 'stack',
+                            content: [{
+                                type: 'component',
+                                componentName: 'anchor_strategy',
+                                componentState: { },
+                                title: 'Anchor Strategy'
+                            },
+                            {
+                                type: 'component',
+                                componentName: 'signals',
+                                componentState: { },
+                                title: 'signals'
+                            }]
                         }
                         ]
                     }]
@@ -791,7 +818,212 @@
                 };
 
             goldenDash.eventHub.on('fills', onFills);
+
         };
+
+        var anchorStrategyComponent = function(container, state) {
+            // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            container.getElement().append(
+                '<div class="row" style="padding-left: 15px; padding-right: 15px; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
+                '    <div class="col-md-12" style="padding: 0px">'+
+                '        <div class="row" style="padding: 0px; margin: 0px">'+
+                '             <div class="container" style="width: 950px">'+
+                '                 <div class="editor" id="anchor_strategy_state_editor"> </div>'+
+                '                 <div class="editor" id="anchor_strategy_params_editor"> </div>'+
+                '                 <form class="form-horizontal" style="padding: 0px; margin: 0px;">'+
+                '                     <div class="form-inline" style="padding: 0px; margin: 0px;">'+
+                '                         <div class="col-md-3" style="padding: 5px; margin: 0px;"><a type="button" id="update_anchor_params" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-default">Update Strategy</a> </div>'+
+                '                         <div class="col-md-3" style="padding: 5px; margin: 0px;"> <a type="button" id="fetch_anchor_params" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-primary">Fetch Params</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="start_anchor_strategy" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-success">Start Strategy</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="stop_anchor_strategy" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-danger">Stop Strategy</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="reset_anchor_strategy_reference" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-info">Reset PnL Reference</a></div>'+
+                '                     </div>'+
+                '                 </form>'+
+                '             </div>'+
+
+                '        </div>'+
+                '    </div>'+
+                '</div>'
+            );
+
+            var onStratConfig =
+                function (actions) {
+                    console.log(actions);
+                };
+
+
+            goldenDash.eventHub.on('anchor_configuration', onStratConfig);
+
+            // Add button handlers
+            var addStrategyParamsHandler =
+                function (editor) {
+                    $('#update_anchor_params').on('click',
+                        function(e) {
+                            var message = {};
+                            message['config'] = editor.getValue();
+                            goldenDash.eventHub.emit('to_anchor_strategy', JSON.stringify(message));
+                        }
+                    );
+                    $('#fetch_anchor_params').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_anchor_strategy", '{"admin": "GetConfig"}');
+                        }
+                    );
+                    $('#start_anchor_strategy').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_anchor_strategy", '{"admin": "StartStrategy"}');
+                        }
+                    );
+                    $('#stop_anchor_strategy').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_anchor_strategy", '{"admin": "StopStrategy"}');
+                        }
+                    );
+                    $('#reset_anchor_strategy_reference').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_anchor_strategy", '{"admin": "ResetPnLReference"}');
+                        }
+                    );
+                };
+
+            var addJsonEditor =
+                function () {
+                    var strategy_state_startval = {
+                        "mkt_price": 0.00,
+                        "strategy": 0.00,
+                        "starting": 0.00,
+                        "cash": 0.0,
+                        "crypto": 0.00,
+                        "portfolio": 0.00,
+                        "state": "#ecf0f1",
+                        "net": 0.00,
+                        "quote": 0.00,
+                        "base": 0,
+                        "num_traded": 0,
+                        "traded_qty": 0
+                    };
+                    var anchor_strategy_state_element = document.getElementById('anchor_strategy_state_editor');
+                    var strategy_state_options =
+                            {
+                                  schema: {
+                                      format: "grid",
+                                      title: "State",
+                                      type: "object",
+                                      properties: {
+                                          mkt_price: { "title": "Mkt Price", "type": "number", "propertyOrder": 6},
+                                          strategy: { "title": "Strategy", "type": "number", "propertyOrder": 1},
+                                          starting: { "title": "Starting", "type": "number", "propertyOrder": 2},
+                                          cash: { "title": "If 100% Cash", "type": "number", "propertyOrder": 3},
+                                          crypto: { "title": "If 100% Crypto", "type": "number", "propertyOrder": 4},
+                                          portfolio: { "title": "Portfolio Value", "type": "number", "propertyOrder": 5},
+                                          state: {"title": "State", "type": "string", "format": "color", "propertyOrder": 7},
+                                          net: { "title": "Net PnL", "type": "number", "propertyOrder": 8},
+                                          quote: { "title": "USD", "type": "number", "propertyOrder": 9},
+                                          base: { "title": "Crypto", "type": "number", "propertyOrder": 10},
+                                          num_traded: { "title": "Num Trades", "type": "number", "propertyOrder": 11},
+                                          traded_qty: { "title": "Traded Qty", "type": "number", "propertyOrder": 12}
+                                      }
+                                  },
+                                 theme: "bootstrap3",
+                                 iconlib: "bootstrap3",
+                                 startval: strategy_state_startval,
+                                 disable_collapse: true,
+                                 disable_properties: true,
+                                 disable_array_reorder: true,
+                                 disable_array_add: true,
+                                 disable_array_delete: true,
+                                 disable_array_delete_all_rows: true,
+                                 disable_array_delete_last_row: true,
+                                 display_required_only: true,
+                                 form_name_root: "Anchor State"
+                             };
+
+
+                    var strategy_state = new JSONEditor(anchor_strategy_state_element, strategy_state_options);
+                    strategy_state.disable();
+
+                    var strategy_params_startval = {
+                        "low": 0,
+                        "high": 0,
+                        "orders": 0,
+                        "show": 0,
+                        "slack": 0,
+                        "md_refresh": 0,
+                        "state_refresh": 0,
+                        "change_crypto": 0,
+                        "change_cash": 0,
+                        "last_update": "Strategy not connected..."
+                    };
+
+                    var anchor_strategy_params_element = document.getElementById('anchor_strategy_params_editor');
+                    var strategy_params_options =
+                            {
+                                  schema: {
+                                      format: "grid",
+                                      title: "Parameters",
+                                      type: "object",
+                                      properties: {
+                                          low: { "title": "Low Price", "type": "number", "propertyOrder": 1 },
+                                          high: { "title": "High Price", "type": "number", "propertyOrder": 2 },
+                                          orders: { "title": "Num Orders", "type": "number", "propertyOrder": 3},
+                                          show: { "title": "Num Show", "type": "number", "propertyOrder": 4},
+                                          md_refresh: {"title": "MD Refresh Interval", "type": "number", "propertyOrder": 5},
+                                          state_refresh: {"title": "State Refresh Interval", "type": "number", "propertyOrder": 6},
+                                          slack: { "title": "Slack", "type": "number", "propertyOrder": 7},
+                                          change_crypto: {"title": "Add/Remove Crypto", "type": "number", "propertyOrder": 8},
+                                          change_cash: {"title": "Add/Remove Cash", "type": "number", "propertyOrder": 9},
+                                          last_update: { "title": "Last Updated", "type": "string", "propertyOrder": 10}
+                                      }
+                                  },
+                                 theme: "bootstrap3",
+                                 iconlib: "bootstrap3",
+                                 startval: strategy_params_startval,
+                                 disable_collapse: true,
+                                 disable_properties: true,
+                                 disable_array_reorder: true,
+                                 disable_array_add: true,
+                                 disable_array_delete: true,
+                                 disable_array_delete_all_rows: true,
+                                 disable_array_delete_last_row: true,
+                                 display_required_only: true,
+                                 form_name_root: "Anchor Params"
+                             };
+
+                    var strategy_params = new JSONEditor(anchor_strategy_params_element, strategy_params_options);
+
+                    var onMessage =
+                        function(data) {
+                            try {
+                                if (data.hasOwnProperty('update')) {
+                                    switch(data.update.type) {
+                                        case 'PnL':
+                                            strategy_state.setValue(JSON.parse(data.update.msg));
+                                            break;
+                                        case 'Parameters':
+                                            strategy_params.setValue(JSON.parse(data.update.msg));
+                                            break;
+                                    }
+                                } else {
+                                    console.log("Unhandled message "+data);
+                                }
+                            } catch (err) {
+                                console.log(msg);
+                                console.log(err);
+                            }
+                        };
+
+                    goldenDash.eventHub.on("from_anchor_strategy", onMessage);
+                    goldenDash.eventHub.emit("to_anchor_strategy", '{"admin": "GetConfig"}');
+                    setTimeout(function() { addStrategyParamsHandler(strategy_params); }, 100);
+                };
+
+            setTimeout(addJsonEditor, 100);
+        };
+
         goldenDash.registerComponent('trade_actions', tradeActionsComponent);
         goldenDash.registerComponent('depth_feed', depthFeedComponent);
         goldenDash.registerComponent('signals', function(container, state) {});
@@ -799,11 +1031,52 @@
         goldenDash.registerComponent('messaging', messagingComponent);
         goldenDash.registerComponent('open_orders', openOrdersComponent);
         goldenDash.registerComponent('fills', fillsComponent);
-        goldenDash.registerComponent('placeholder', function(container, state) {});
+        goldenDash.registerComponent('anchor_strategy', anchorStrategyComponent);
 
         goldenDash.init();
 
         // Data Emitters:
+        var anchorStrategyConnect =
+            function() {
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8010"+'/ws';
+                console.log(webSocketUri);
+                var ws = new WebSocket(webSocketUri);
+
+                ws.onopen = function () {
+                    ws.send('{"admin": "GetConfig"}');
+                    goldenDash.eventHub.emit('socket_open', 'AnchorStrategy');
+                };
+
+                ws.onmessage = function (msg) {
+                    try {
+                        var data = JSON.parse(msg.data);
+                        goldenDash.eventHub.emit('from_anchor_strategy', data);
+                    }
+                    catch (err) {
+                        console.log(err);
+                    };
+                };
+
+                ws.onclose =
+                    function () {
+                        // ToDo: Make use of this broadcast
+                        goldenDash.eventHub.emit('socket_closed', 'AnchorStrategy');
+
+                        console.log("AnchorStrategy Closed!");
+                        setTimeout(
+                            function() {
+                                anchorStrategyConnect();
+                            }, 5000);
+                    };
+
+                var onMessageToAnchorStrategy =
+                    function (message) {
+                        ws.send(message);
+                    };
+
+                goldenDash.eventHub.on('to_anchor_strategy', onMessageToAnchorStrategy);
+            };
+
         var clickTraderConnect =
             function() {
                 var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8003"+'/ws';
@@ -934,6 +1207,7 @@
 
         depthFeedConnect();
         clickTraderConnect();
+        anchorStrategyConnect();
 
     </script>
 </html>

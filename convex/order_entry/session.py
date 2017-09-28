@@ -182,6 +182,15 @@ class Session:
         """
         await self._gateway.cancel_all()
 
+    def on_order_fill(self, order, filled_qty):
+        order.filled_qty += filled_qty
+        assert(order.remaining_qty >= filled_qty)
+        order.remaining_qty -= filled_qty
+        assert(order.remaining_qty + order.filled_qty == order.original_qty)
+
+        # Notify all listeners on fill activity
+        for handler in self._event_handlers:
+            handler.on_fill(order, filled_qty)
 
     def notify_fill(self, order, filled_qty):
         """Called when order is traded against."""

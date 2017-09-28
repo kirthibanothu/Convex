@@ -104,8 +104,8 @@ class Book:
             max_depth (int): Number of levels to display.
         """
         DEFAULT_LVL = Level(price='', qty='', orders='')
-        BID_FMT = '{lvl.orders:3}  {lvl.qty:15} {lvl.price:12}'
-        ASK_FMT = '{lvl.price:<12} {lvl.qty:<15}  {lvl.orders:<3}'
+        BID_FMT = '{lvl.orders:3}  {lvl.qty:20} {lvl.price:15}'
+        ASK_FMT = '{lvl.price:<15} {lvl.qty:<20}  {lvl.orders:<3}'
 
         level_iter = itertools.zip_longest(
                 self._bids, self._asks,

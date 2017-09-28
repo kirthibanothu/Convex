@@ -110,9 +110,9 @@ function update_level(tag, value, color, animate) {
     var div_tag = $(tag);
     if (div_tag.text() != value) {
         if (tag.indexOf('q') > -1) {
-            div_tag.text(value.toFixed(6));
+            div_tag.text(parseFloat(value).toFixed(6));
         } else if (tag.indexOf('p') > -1) {
-            div_tag.text(value.toFixed(2));
+            div_tag.text(parseFloat(value).toFixed(2));
         } else if (tag.indexOf('o') > -1) {
             div_tag.text(parseInt(value));
         } else {

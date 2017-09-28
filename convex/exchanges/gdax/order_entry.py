@@ -162,7 +162,7 @@ class OrderEntryGateway(gateway.Gateway):
             } for a in accounts
         }
 
-        log.info('Updated balances: {}',
+        log.debug('Updated balances: {}',
                  ', '.join(map('{0[0]}={0[1]}'.format,
                                self._balances.items())))
         if self._balance_task:

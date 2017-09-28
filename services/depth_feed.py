@@ -9,8 +9,6 @@ import asyncio
 import docopt
 import json
 import logging
-import os
-
 import aiohttp
 import aiohttp.web
 
@@ -18,11 +16,17 @@ from convex.common.instrument import instruments_lookup
 from convex.market_data import Subscriber as MDSubscriber
 from convex.exchanges import gdax
 
-LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s | %(message)s | [%(module)s] [%(funcName)s]'
-logging.basicConfig(format= LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s ' \
+             '| %(message)s | [%(module)s] [%(funcName)s]'
+
+logging.basicConfig(format=LOG_FORMAT,
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO)
+
 
 class WebServer:
     def __init__(self):
+        self.ws = None
         pass
 
     async def init(self, loop, ip, port):
@@ -37,13 +41,15 @@ class WebServer:
         await loop.create_server(handler, ip, port)
 
         # Add app routers:
-
         self.session = aiohttp.ClientSession()
-        self.ws = await self.session.ws_connect('ws://{}:{}/ws'.format(ip, port))
+        self.ws = await self.session.ws_connect(
+                'ws://{}:{}/ws'.format(ip, port))
+
         logging.info('Running web server at {}:{}'.format(ip, port))
 
     def send_str(self, data):
-        self.ws.send_str(data)
+        if self.ws:
+            self.ws.send_str(data)
 
     async def socket_handler(self, request):
         resp = aiohttp.web.WebSocketResponse()
@@ -76,6 +82,7 @@ class WebServer:
                 ws.send_str('{"ws_msg": "Someone disconnected"}')
                 return resp
 
+
 async def poll_subscriber(sub, web_server, feed_params):
     await asyncio.sleep(2)
     msg = {}
@@ -85,16 +92,17 @@ async def poll_subscriber(sub, web_server, feed_params):
         web_server.send_str(json.dumps(msg))
         await asyncio.sleep(feed_params['sleep_int'])
 
+
 class DepthFeed:
     def __init__(self, loop=None):
         if loop:
             self.loop = loop
         else:
-            self.loop = asynio.get_event_loop()
+            self.loop = asyncio.get_event_loop()
 
-    async def launch_gw(self, gw):
-        await gw.launch()
-        await gw.request_shutdown()
+    async def launch_gw(self):
+        await self.gw.launch()
+        await self.gw.request_shutdown()
 
     async def start_web_server(self):
         self.web_server = WebServer()
@@ -104,34 +112,27 @@ class DepthFeed:
 
         instrument = instruments_lookup[feed_params['instrument']]
 
-        gw = gdax.MDGateway(loop = self.loop)
-        sub = MDSubscriber(instrument, gateway=gw)
+        self.gw = gdax.MDGateway(loop=self.loop)
+        sub = MDSubscriber(instrument, gateway=self.gw)
+
+        await self.web_server.init(
+                self.loop, web_params['ip'], web_params['port'])
 
         tasks = [
-                    asyncio.ensure_future(
-                        self.launch_gw(gw)
-                    ),
+                    asyncio.ensure_future(self.launch_gw()),
                     asyncio.ensure_future(
                         poll_subscriber(sub, self.web_server, feed_params)
-                    ),
-                    asyncio.ensure_future(
-                        self.web_server.init(
-                            self.loop, web_params['ip'], web_params['port']
-                        )
                     )
                 ]
-        self._future_tasks = asyncio.ensure_future(asyncio.gather(*tasks, loop=self.loop))
+        await asyncio.gather(*tasks, loop=self.loop)
 
-        try:
-            await self._future_tasks
-        except asyncio.CancelledError:
-            pass
 
 def main(args):
     # Rapid Development Tip:
     #   Use Browser-Sync as follows for GUI devel:
     #   (will auto refresh browser on file change)
-    #       $browser-sync start --proxy http://localhost:5001/ --files="templates/**" --port=5002
+    #       $browser-sync start --proxy http://localhost:5001/
+    #                           --files="templates/**" --port=5002
 
     web_params = {
                     'ip': args['<IP>'],
@@ -148,6 +149,7 @@ def main(args):
 
     depth_feed = DepthFeed(loop)
     loop.run_until_complete(depth_feed.run(web_params, feed_params))
+
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)

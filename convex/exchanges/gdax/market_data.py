@@ -75,7 +75,6 @@ class MDGateway(market_data.Gateway):
 
     async def _poll_queue(self):
         m0 = await self._message_queue.get()
-        log.debug('Pull size {}', self._message_queue.qsize() + 1)
         messages = [m0]
         while not self._message_queue.empty():
             messages.append(self._message_queue.get_nowait())
@@ -109,7 +108,6 @@ class MDGateway(market_data.Gateway):
             while True:
                 data = await sock.recv()
                 self._message_queue.put_nowait(data)
-                log.debug('Push size {}', self._message_queue.qsize())
         except asyncio.CancelledError:
             log.notice('Canceled poll_endpoint')
         except Exception:
@@ -189,7 +187,10 @@ class MDGateway(market_data.Gateway):
                 aggressor=resting_side.opposite,
                 price=make_price(message['price']),
                 qty=make_qty(message['size']),
-                sequence=int(message['sequence']))
+                sequence=int(message['sequence']),
+                time=du_parser.parse(message['time']),
+                maker_id=message['maker_order_id'],
+                taker_id=message['taker_order_id'])
 
     async def _recover(self):
         with aiohttp.ClientSession(loop=self.loop) as session:

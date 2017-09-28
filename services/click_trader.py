@@ -277,7 +277,7 @@ class WebServer:
                     pass
         except Exception as e:
             self.broadcast('UnexpectedError', e)
-            logging.error('Unexcepted Error: {}'.format(e))
+            logging.error('Unexpected Error: {}'.format(e))
         finally:
             try:
                 request.app['sockets'].remove(resp)
@@ -339,7 +339,7 @@ class ClickTrader:
 
 
 def main(args):
-    app = AsyncApp(name='gdax_oe_example')
+    app = AsyncApp(name='click_trader')
 
     params = {
                  'api_url': gdax.OrderEntryGateway.SANDBOX_URL,

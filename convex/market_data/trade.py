@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 
-Trade = namedtuple('Trade', ['aggressor', 'price', 'qty', 'sequence'])
+Trade = namedtuple('Trade', ['aggressor', 'price', 'qty', 'sequence', 'maker_id', 'taker_id', 'time'])
 
 
 def dump_trade(trade):
@@ -10,5 +10,8 @@ def dump_trade(trade):
         'price': str(trade.price),
         'qty': str(trade.qty),
         'sequence': trade.sequence,
-        'aggressor': str(trade.aggressor)
+        'aggressor': str(trade.aggressor),
+        'maker_order_id': trade.maker_id,
+        'taker_order_id': trade.taker_id,
+        'time': str(trade.time)
     }
