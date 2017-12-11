@@ -43,7 +43,9 @@ class MDGateway(market_data.Gateway):
         }
 
     def subscribe(self, instrument):
-        if instrument != make_btc_usd(ExchangeID.GDAX) and instrument != make_ltc_usd(ExchangeID.GDAX) and instrument != make_eth_usd(ExchangeID.GDAX):
+        if (instrument != make_btc_usd(ExchangeID.GDAX)
+                and instrument != make_ltc_usd(ExchangeID.GDAX)
+                and instrument != make_eth_usd(ExchangeID.GDAX)):
             raise ValueError('Unsupported instrument: {}'.format(instrument))
         self._instrument = instrument
 
@@ -110,6 +112,10 @@ class MDGateway(market_data.Gateway):
                 self._message_queue.put_nowait(data)
         except asyncio.CancelledError:
             log.notice('Canceled poll_endpoint')
+        except websockets.exceptions.ConnectionClosed:
+            log.info("Might have lost conn to the exch, reconnecting in 1s...")
+            await asyncio.sleep(1)
+            await self._poll_endpoint(endpoint)
         except Exception:
             log.exception()
         finally:

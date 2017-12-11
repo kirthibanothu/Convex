@@ -3,6 +3,7 @@ from convex.strategy_utils.logger import log
 from convex.order_entry.session import Session
 from convex.order_entry.limit_checker import LimitChecker
 from convex.order_entry import exceptions as oe_exceptions
+from convex.strategy_utils.utils import PostOnlyException
 
 
 def construct_error(action, args=''):
@@ -15,6 +16,10 @@ class Trader:
                               limits['max_order_value'],
                               limits['max_open_value'])
         self._session = Session(gateway, instrument, limits)
+
+    @property
+    def open_orders(self):
+        return self._session.open_orders
 
     async def get_balance(self):
         base, quote = await self._session.get_balances()
@@ -65,6 +70,7 @@ class Trader:
             return order
         except oe_exceptions.SubmitNack as e:
             self._log_error('submit_nack', e, construct_error('submit'))
+            raise PostOnlyException
         except oe_exceptions.LimitError as e:
             self._log_error('limit_error', e, construct_error('submit'))
         except oe_exceptions.InternalNack as e:

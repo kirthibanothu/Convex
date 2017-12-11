@@ -74,7 +74,7 @@ class Playback:
         raise StopPlayback()
 
     @staticmethod
-    def _deduce_format(filename : str) -> str:
+    def _deduce_format(filename: str) -> str:
         file_ext = filename.rsplit('.', maxsplit=1)[-1]
         if file_ext in ('json', 'js'):
             return 'json'

@@ -163,8 +163,8 @@ class OrderEntryGateway(gateway.Gateway):
         }
 
         log.debug('Updated balances: {}',
-                 ', '.join(map('{0[0]}={0[1]}'.format,
-                               self._balances.items())))
+                  ', '.join(map('{0[0]}={0[1]}'.format,
+                            self._balances.items())))
         if self._balance_task:
             self._balance_task = None
 

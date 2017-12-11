@@ -1,5 +1,6 @@
 from ..exchanges import ExchangeID
 
+
 class Instrument:
     DEFAULT_SEPERATOR = ''
     KNOWN_CURRENCiES = 'USD', 'BTC', 'LTC', 'ETH'

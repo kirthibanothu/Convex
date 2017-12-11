@@ -9,23 +9,22 @@ import aiohttp.web
 
 import json
 import docopt
-import logbook
 import asyncio
 import logging
-import numbers
 
 from convex.common.instrument import instruments_lookup
-from convex.exchanges import ExchangeID
-from convex.common.app import AsyncApp
-from convex.common import Instrument, Side, make_price, make_qty
+from convex.common import Side, make_price, make_qty
 
 from convex.order_entry.session import Session
 from convex.order_entry import exceptions as oe_exceptions
 from convex.order_entry.limit_checker import LimitChecker
 from convex.exchanges import gdax
 
-LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s | %(message)s | [%(module)s] [%(funcName)s]'
-logging.basicConfig(format= LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s |'\
+             '%(message)s | [%(module)s] [%(funcName)s]'
+logging.basicConfig(
+        format=LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+
 
 class Trader:
     def __init__(self, gateway, instrument):
@@ -40,7 +39,8 @@ class Trader:
         self._broadcast_cb = None
 
     def on_fill(self, order, filled_qty):
-        logging.info('Order filled: filled_qty={}, order={}'.format(filled_qty, order))
+        logging.info(
+            'Order filled: filled_qty={}, order={}'.format(filled_qty, order))
         fill = {"filled_qty": filled_qty, "order": order.dump()}
         if (self._broadcast_cb):
             self._broadcast_cb("on_fill", fill)
@@ -67,9 +67,10 @@ class Trader:
         return await self.session.get_fills()
 
     def log_balance(self, balance):
-        logging.info('Balances: base=avail:{}|hold:{}, quote=avail:{}|hold:{}'.format(
-            balance['base']['available'], balance['base']['hold'],
-            balance['quote']['available'], balance['quote']['hold']))
+        logging.info(
+            'Balances: base=avail:{}|hold:{}, quote=avail:{}|hold:{}'.format(
+                balance['base']['available'], balance['base']['hold'],
+                balance['quote']['available'], balance['quote']['hold']))
 
     def log_exch_orders(self, orders):
         logging.info('Open orders: {}'.format(orders))
@@ -87,7 +88,7 @@ class Trader:
 
     async def broadcast_orders(self):
         exch_orders = await self.session.exch_orders()
-        #self.log_exch_orders(exch_orders)
+        # self.log_exch_orders(exch_orders)
         if (self._broadcast_cb):
             self._broadcast_cb("open_orders", exch_orders)
 
@@ -112,15 +113,20 @@ class Trader:
                 await self.broadcast_order_ack("submit_ack", order.dump())
             return order
         except oe_exceptions.SubmitNack as nack:
-            self.broadcast_error('submit_nack', nack, {'msg': 'submit', 'args': ''})
+            self.broadcast_error(
+                'submit_nack', nack, {'msg': 'submit', 'args': ''})
         except oe_exceptions.LimitError as limiterror:
-            self.broadcast_error('limit_error', limiterror, {'msg': 'submit', 'args': ''})
+            self.broadcast_error(
+                'limit_error', limiterror, {'msg': 'submit', 'args': ''})
         except oe_exceptions.InternalNack as internalnack:
-            self.broadcast_error('internal_nack', internalnack, {'msg': 'submit', 'args': ''})
+            self.broadcast_error(
+                'internal_nack', internalnack, {'msg': 'submit', 'args': ''})
         except oe_exceptions.OrderError as ordererror:
-            self.broadcast_error('order_error', ordererror, {'msg': 'submit', 'args': ''})
+            self.broadcast_error(
+                'order_error', ordererror, {'msg': 'submit', 'args': ''})
         except Exception as e:
-            logging.error('Unhandled error [{}] when trying to submit order.'.format(e))
+            logging.error(
+                'Unhandled error [{}] when trying to submit order.'.format(e))
 
     async def submit_ioc(self, **kwargs):
         try:
@@ -132,15 +138,21 @@ class Trader:
 
             return order
         except oe_exceptions.SubmitNack as nack:
-            self.broadcast_error('submit_nack', nack, {'msg': 'submit_ioc', 'args': ''})
+            self.broadcast_error(
+                'submit_nack', nack, {'msg': 'submit_ioc', 'args': ''})
         except oe_exceptions.LimitError as limiterror:
-            self.broadcast_error('limit_error', limiterror, {'msg': 'submit_ioc', 'args': ''})
+            self.broadcast_error(
+                'limit_error', limiterror, {'msg': 'submit_ioc', 'args': ''})
         except oe_exceptions.InternalNack as internalnack:
-            self.broadcast_error('internal_nack', internalnack, {'msg': 'submit_ioc', 'args': ''})
+            self.broadcast_error(
+                'internal_nack', internalnack,
+                {'msg': 'submit_ioc', 'args': ''})
         except oe_exceptions.OrderError as ordererror:
-            self.broadcast_error('order_error', ordererror, {'msg': 'submit_ioc', 'args': ''})
+            self.broadcast_error(
+                'order_error', ordererror, {'msg': 'submit_ioc', 'args': ''})
         except Exception as e:
-            logging.error('Unhandled error [{}] when trying to submit order.'.format(e))
+            logging.error(
+                'Unhandled error [{}] when trying to submit order.'.format(e))
 
     async def cancel_session(self):
         try:
@@ -149,9 +161,11 @@ class Trader:
             await self.broadcast_orders()
 
         except oe_exceptions.CancelNack as nack:
-            self.broadcast_error('cancel_nack', nack, {'msg': 'cancel_session', 'args': ''})
+            self.broadcast_error(
+                'cancel_nack', nack, {'msg': 'cancel_session', 'args': ''})
         except Exception as e:
-            logging.error('Unhandled error [{}] when trying to cancel session orders.'.format(e))
+            logging.error(
+                'Unhandled err [{}] when trying to cancel session.'.format(e))
 
     async def cancel_all(self):
         try:
@@ -160,16 +174,21 @@ class Trader:
             await self.broadcast_orders()
 
         except oe_exceptions.CancelNack as nack:
-            self.broadcast_error('cancel_all_nack', nack, {'msg': 'cancel_all', 'args': ''})
+            self.broadcast_error(
+                'cancel_all_nack', nack, {'msg': 'cancel_all', 'args': ''})
         except Exception as e:
-            logging.error('Unhandled error [{}] when trying to cancel all orders.'.format(e))
+            logging.error(
+                'Unhandled err [{}] when trying to cancel all.'.format(e))
+
 
 def is_valid_submit(submit):
     try:
-        return all(submit[k] is not None for k in ('side', 'quote', 'qty', 'price', 'ioc', 'side'))
+        return all(submit[k] is not None
+                   for k in ('side', 'quote', 'qty', 'price', 'ioc', 'side'))
     except Exception as e:
         logging.exception('IsValidSubmit check failed. Msg: {}'.format(submit))
         return False
+
 
 class WebServer:
     def __init__(self):
@@ -192,9 +211,9 @@ class WebServer:
         await loop.create_server(handler, ip, port)
 
         self.session = aiohttp.ClientSession()
-        self.ws = await self.session.ws_connect('ws://{}:{}/ws'.format(ip, port))
+        self.ws = await self.session.ws_connect(
+                'ws://{}:{}/ws'.format(ip, port))
         logging.info('Running web server at {}:{}'.format(ip, port))
-
 
     def broadcast(self, msg_type, msg):
         resp = {}
@@ -250,7 +269,8 @@ class WebServer:
                         logging.info('Recieved request: {}'.format(req))
                         if is_valid_submit(req['submit']):
                             submit = req['submit']
-                            side = Side.BUY if submit['side'] == 'BUY' else Side.SELL
+                            side = Side.BUY \
+                                if submit['side'] == 'BUY' else Side.SELL
 
                             submit = await self.trader.submit_order(
                                           side=side,
@@ -259,7 +279,13 @@ class WebServer:
                                           ioc=submit['ioc'],
                                           quote=submit['quote'])
                         else:
-                            self.broadcast('submit_nack', {'trigger': {'msg': 'submit', 'args': req}, 'error': 'One or more fields are invalid!'})
+                            self.broadcast(
+                                'submit_nack',
+                                {
+                                    'trigger':
+                                        {'msg': 'submit', 'args': req},
+                                        'error': 'One+ fields are invalid!'
+                                })
                     elif 'cancel_session' in req:
                         await self.trader.cancel_session()
                     elif 'cancel_all' in req:
@@ -286,10 +312,11 @@ class WebServer:
 
             return resp
 
-# ToDo: Look into how to keep the web server alive without this
+
 async def keep_alive():
     while True:
         await asyncio.sleep(30)
+
 
 class ClickTrader:
     def __init__(self, loop=None):
@@ -307,7 +334,9 @@ class ClickTrader:
     async def run(self, params):
         await self.start_web_server()
 
-        api_url = gdax.OrderEntryGateway.SANDBOX_URL if params['sandbox'] else gdax.OrderEntryGateway.API_URL
+        api_url = gdax.OrderEntryGateway.SANDBOX_URL \
+            if params['sandbox'] else gdax.OrderEntryGateway.API_URL
+
         self.gw = gdax.OrderEntryGateway(
                            api_url=api_url,
                            api_key=params['api_key'],
@@ -320,17 +349,15 @@ class ClickTrader:
         self.trader = Trader(gateway=self.gw, instrument=instrument)
 
         await self.launch_gw()
+
+        await self.web_server.init(self.loop, params['ip'],
+                                   params['port'], self.trader, instrument)
+
         tasks = [
-                    asyncio.ensure_future(
-                        keep_alive()
-                    ),
-                    asyncio.ensure_future(
-                        self.web_server.init(
-                            self.loop, params['ip'], params['port'], self.trader, instrument
-                        )
-                    )
+                    asyncio.ensure_future(keep_alive())
                 ]
-        self._future_tasks = asyncio.ensure_future(asyncio.gather(*tasks, loop=self.loop))
+        self._future_tasks = asyncio.ensure_future(
+                                 asyncio.gather(*tasks, loop=self.loop))
 
         try:
             await self._future_tasks
@@ -339,8 +366,6 @@ class ClickTrader:
 
 
 def main(args):
-    app = AsyncApp(name='click_trader')
-
     params = {
                  'api_url': gdax.OrderEntryGateway.SANDBOX_URL,
                  'api_key': args['<API_KEY>'],
@@ -353,12 +378,14 @@ def main(args):
 
              }
 
-    logging.info("Starting Click Trader for {} in {} mode".format(params['instrument'],
-                                                                  "SANDBOX" if params['sandbox'] else "PRODUCTION"))
+    logging.info("Starting Click Trader for {} in {} mode".format(
+        params['instrument'],
+        "SANDBOX" if params['sandbox'] else "PRODUCTION"))
 
     loop = asyncio.get_event_loop()
     click_trader = ClickTrader(loop)
     loop.run_until_complete(click_trader.run(params))
+
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)

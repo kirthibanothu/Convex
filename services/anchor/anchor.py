@@ -12,12 +12,12 @@ import asyncio
 # For StrategyParams
 from datetime import datetime
 
-from logger import log
+from convex.strategy_utils.logger import log
 
 from trader import Trader
 from web_server import WebServer
 from strategy import Strategy
-from utils import to_json
+from convex.strategy_utils.utils import to_json
 
 from convex.common.instrument import instruments_lookup
 from convex.common import make_price, make_qty

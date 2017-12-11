@@ -127,7 +127,17 @@
         // Compute depth feed width
         var feed_depth = 10;
         var row_size = 14; // pixels
-        var base_measurements = { 'depth_feed': {'width': 450, 'height': (2*feed_depth+1)*row_size }, 'trade_actions': {'width': 230} };
+        var base_measurements = {
+            'depth_feed': {
+                'width': 450, 'height': (2*feed_depth+1)*row_size
+            },
+            'trade_actions': {
+                'width': 230
+            },
+            'open_orders': {
+                'unclaimable_height': 710
+            }
+        };
 
         // TODO: define the width and height of the config below in a different struct
         // Defines the initial layout of the Dashboard
@@ -186,11 +196,13 @@
                             type: 'component',
                             componentName: 'open_orders',
                             componentState: { },
-                            title: 'Open Orders'
+                            title: 'Open Orders',
+                            height: Math.ceil(((getHeight()-base_measurements.open_orders.unclaimable_height)/getHeight())*100)
                         },
                         {
                             type: 'stack',
-                            content: [{
+                            content: [
+                            {
                                 type: 'component',
                                 componentName: 'anchor_strategy',
                                 componentState: { },
@@ -1038,7 +1050,7 @@
         // Data Emitters:
         var anchorStrategyConnect =
             function() {
-                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8010"+'/ws';
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8011"+'/ws';
                 console.log(webSocketUri);
                 var ws = new WebSocket(webSocketUri);
 
@@ -1076,6 +1088,7 @@
 
                 goldenDash.eventHub.on('to_anchor_strategy', onMessageToAnchorStrategy);
             };
+
 
         var clickTraderConnect =
             function() {

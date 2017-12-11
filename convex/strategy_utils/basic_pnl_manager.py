@@ -1,6 +1,7 @@
-from logger import log
+from decimal import Decimal
+from .logger import log
 
-from utils import to_json
+from .utils import to_json
 from convex.common import Side
 
 StateColors = {"active": "#27ae60", "halted": "#c0392b"}
@@ -19,7 +20,8 @@ class BasicPnLManager():
                  get_balance_cb,
                  broadcast_cb,
                  crypto_coins,
-                 cash_value):
+                 cash_value,
+                 instrument):
 
         # Callbacks - Coroutines, need to be awaited
         self._get_balance_cb = get_balance_cb
@@ -33,12 +35,15 @@ class BasicPnLManager():
         # State
         self._refresh_int = 15
 
+        self._total_fees = Decimal(0.0)
         self._num_traded = 0
-        self._traded_qty = 0.0
+        self._traded_qty = Decimal(0.0)
         self._num_updates = 1
 
-        self._cash_value = cash_value
         self._crypto_coins = crypto_coins
+        self._cash_value = cash_value
+
+        self._instrument = instrument
 
         self._is_strategy_running = True
 
@@ -47,6 +52,19 @@ class BasicPnLManager():
         # Uninitialized
         self._strategy_val = 0.0
         self._last_price = UNINITIALIZED
+
+    @property
+    def total_fees(self):
+        return self._total_fees
+
+    @property
+    def num_trades(self):
+        return self._num_traded
+
+    @property
+    def crypto_coins(self):
+        assert self._crypto_coins >= Decimal(0.0)
+        return self._crypto_coins
 
     def _initialize(self, price):
         self._initial_account_value = self._strategy_val
@@ -75,8 +93,18 @@ class BasicPnLManager():
         self._initial_account_value = self._strategy_val
 
     def update_reserves(self, delta_cash, delta_crypto):
+        # log.info("Before Update: cash: {} crypto: {}".format(
+        #     self._cash_value, self._crypto_coins))
+        # log.info("Update Reserves delta cash: {}, delta crypto: {}".format(
+        #     delta_cash, delta_crypto))
+
         self._cash_value += delta_cash
         self._crypto_coins += delta_crypto
+        assert self._crypto_coins >= Decimal(0.0)
+        assert self._cash_value >= Decimal(0.0)
+
+        # log.info("After Update: cash: {} crypto: {}".format(
+        #     self._cash_value, self._crypto_coins))
 
         if self._last_price != UNINITIALIZED:
             # Updating theoretical reserves as well
@@ -88,16 +116,51 @@ class BasicPnLManager():
 
     # Session Event Handlers
     def on_fill(self, order, filled_qty):
+        # log.info("Before Fill: cash: {} crypto: {}".format(
+        #     self._cash_value, self._crypto_coins))
+        # log.info("Order: {}, filled_qty: {}".format(order, filled_qty))
         # Note: Assuming no taking, no fees
         self._num_traded += 1
         self._traded_qty += filled_qty
 
-        if (order.side == Side.BUY):
+        if (order.side == Side.BUY or order.side == Side.BID):
             self._cash_value -= order.price * filled_qty
             self._crypto_coins += filled_qty
+            if self._cash_value < Decimal(0.0):
+                log.warning(
+                        "Cash value is NEGATIVE. Curr: {}, Price: {}, Qty: {}".format(
+                            self._cash_value, order.price, filled_qty))
+                self._cash_value = 0
+            if self._crypto_coins < Decimal(0.0):
+                log.warning(
+                        "Crypto is NEGATIVE. Curr: {}, Price: {}, Qty: {}".format(
+                            self._crypto_coins, order.price, filled_qty))
+                self._crypto_coins = 0
         else:
             self._cash_value += order.price * filled_qty
             self._crypto_coins -= filled_qty
+            if self._cash_value < Decimal(0.0):
+                log.warning(
+                        "Cash value is NEGATIVE. Curr: {}, Price: {}, Qty: {}".format(
+                            self._cash_value, order.price, filled_qty))
+                self._cash_value = 0
+            if self._crypto_coins < Decimal(0.0):
+                log.warning(
+                        "Crypto is NEGATIVE. Curr: {}, Price: {}, Qty: {}".format(
+                            self._crypto_coins, order.price, filled_qty))
+                self._crypto_coins = 0
+
+        # log.info("After Fill: cash: {} crypto: {}".format(
+        #     self._cash_value, self._crypto_coins))
+
+    def apply_fees(self, side, price, fee):
+        self._total_fees += fee
+        if side == Side.BUY:
+            self._crypto_coins -= (fee/price)
+            assert self._crypto_coins >= Decimal(0.0)
+        else:
+            self._cash_value -= fee
+            assert self._cash_value >= Decimal(0.0)
 
     def on_complete(self, order):
         pass
@@ -112,13 +175,18 @@ class BasicPnLManager():
         return self._crypto_coins*mkt_price
 
     def get_cash_value(self):
-        return self._cash_value
+        assert self._cash_value >= Decimal(0.0)
+        return max(Decimal(0.0), self._cash_value)
 
     def get_strategy_value(self, book=None):
-        return (self.get_crypto_value(book)) + self._cash_value
+        return (self.get_crypto_value(book)) + Decimal(self._cash_value)
 
     def get_mkt_price(self, book):
-        return (book.best_bid.price + book.best_ask.price) / 2
+        if hasattr(book, 'best_bid') and hasattr(book, 'best_ask'):
+            return (book.best_bid.price + book.best_ask.price) / 2
+        return (
+            Decimal(book['bids'][0]['price']) +
+            Decimal(book['asks'][0]['price'])) / 2
 
     # On book updates
     async def update(self, book):
@@ -149,7 +217,8 @@ class BasicPnLManager():
                        'base': self._crypto_coins,
                        'quote': self._cash_value,
                        'num_traded': self._num_traded,
-                       'traded_qty': self._traded_qty
+                       'traded_qty': self._traded_qty,
+                       'instrument': self._instrument
                    }
 
     async def broadcast(self):

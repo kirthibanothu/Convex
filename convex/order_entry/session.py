@@ -170,10 +170,9 @@ class Session:
 
         This method is a coroutine.
         """
-        #TODO: There is a bug in this code somewhere...
+        # TODO: There is a bug in this code somewhere...
         cancels = [self.cancel(order) for order in self.open_orders]
         await asyncio.gather(*cancels, loop=self._gateway.loop)
-
 
     async def cancel_all(self):
         """Cancels all orders at a global scale

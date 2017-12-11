@@ -8,7 +8,7 @@ class AuditLog:
 
     def __init__(self, exchange_id):
         handler = logbook.FileHandler(
-                '{}-p{}.audit'.format(exchange_id.name, os.getpid()),
+                'audit/{}-p{}.audit'.format(exchange_id.name, os.getpid()),
                 format_string=AuditLog.LOG_FORMAT)
 
         self._logger = logbook.Logger(exchange_id.name)

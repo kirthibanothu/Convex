@@ -7,19 +7,27 @@ Usage:
 
 import asyncio
 import docopt
-import json
 import logging
 import os
 
 import aiohttp
 import aiohttp.web
 
-from convex.market_data import Subscriber as MDSubscriber
 
-LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s | %(message)s | [%(module)s] [%(funcName)s]'
-logging.basicConfig(format= LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+LOG_FORMAT = '%(asctime)s.%(msecs)03d: %(levelname)s' \
+             '| %(message)s | [%(module)s] [%(funcName)s]'
 
-WS_FILE = os.path.join(os.path.dirname(__file__), '../web/templates/dashboard.html')
+
+logging.basicConfig(
+    format=LOG_FORMAT, datefmt='%Y-%m-%d %H:%M:%S', level=logging.INFO)
+
+
+WS_FILE = os.path.join(os.path.dirname(__file__),
+                       '../web/templates/dashboard.html')
+
+AESOP_FILE = os.path.join(os.path.dirname(__file__),
+                          '../web/templates/aesop.html')
+
 
 class WebServer:
     def __init__(self):
@@ -27,9 +35,15 @@ class WebServer:
 
     async def init(self, loop, ip, port):
         self.app = aiohttp.web.Application(loop=loop)
-        self.app.router.add_static(prefix='/static/', path='web/static/', name='static', show_index=True)
+        self.app.router.add_static(
+                prefix='/static/',
+                path='web/static/',
+                name='static',
+                show_index=True)
         self.app['sockets'] = []
         self.app.router.add_get('/', self.root_handler)
+        self.app.router.add_get('/aesop', self.aesop_handler)
+
         handler = self.app.make_handler()
         await loop.create_server(handler, ip, port)
 
@@ -37,19 +51,27 @@ class WebServer:
 
     async def root_handler(self, request):
         with open(WS_FILE, 'rb') as fp:
-            return aiohttp.web.Response(body=fp.read(), content_type='text/html')
+            return aiohttp.web.Response(
+                    body=fp.read(), content_type='text/html')
 
-# ToDo: Look into how to keep the web server alive without this
+    async def aesop_handler(self, request):
+        with open(AESOP_FILE, 'rb') as fp:
+            return aiohttp.web.Response(
+                    body=fp.read(), content_type='text/html')
+
+
 async def keep_alive():
+    # ToDo: Look into how to keep the web server alive without this
     while True:
         await asyncio.sleep(30)
+
 
 class Dashboard:
     def __init__(self, loop=None):
         if loop:
             self.loop = loop
         else:
-            self.loop = asynio.get_event_loop()
+            self.loop = asyncio.get_event_loop()
 
     async def launch_gw(self, gw):
         await gw.launch()
@@ -61,22 +83,19 @@ class Dashboard:
     async def run(self, web_params):
         await self.start_web_server()
 
-        tasks = [
-                    asyncio.ensure_future(
-                        keep_alive()
-                    ),
-                    asyncio.ensure_future(
-                        self.web_server.init(
-                            self.loop, web_params['ip'], web_params['port']
-                        )
-                    )
-                ]
-        self._future_tasks = asyncio.ensure_future(asyncio.gather(*tasks, loop=self.loop))
+        await self.web_server.init(
+                self.loop, web_params['ip'], web_params['port'])
+
+        tasks = [asyncio.ensure_future(keep_alive())]
+        self._future_tasks = asyncio.ensure_future(
+                                 asyncio.gather(*tasks, loop=self.loop)
+                             )
 
         try:
             await self._future_tasks
         except asyncio.CancelledError:
             pass
+
 
 def main(args):
     web_params = {
@@ -88,6 +107,7 @@ def main(args):
 
     dashboard = Dashboard(loop)
     loop.run_until_complete(dashboard.run(web_params))
+
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)

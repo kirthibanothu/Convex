@@ -1,12 +1,12 @@
 import asyncio
 from decimal import Decimal
-from logger import log
 from collections import namedtuple
 
 from convex.common import Side, make_price, make_qty
+from convex.strategy_utils.basic_pnl_manager import BasicPnLManager
+from convex.strategy_utils.logger import log
 
 from basic_order_manager import BasicOrderManager
-from basic_pnl_manager import BasicPnLManager
 
 
 PendingOrder = namedtuple("PendingOrder", ["price", "qty", "side"])

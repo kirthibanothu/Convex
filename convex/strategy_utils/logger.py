@@ -17,4 +17,3 @@ logbook.FileHandler(
     bubble=True).push_application()
 
 log = logbook.Logger('Strategy')
-

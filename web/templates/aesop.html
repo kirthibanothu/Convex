@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<html>
+    <head>
+        <!-- TODO: Make sure these are internally served up -->
+        <!-- CSS Stylesheets -->
+        <link type="text/css" rel="stylesheet" href="//golden-layout.com/files/latest/css/goldenlayout-base.css" />
+        <link type="text/css" rel="stylesheet" href="//golden-layout.com/files/latest/css/goldenlayout-dark-theme.css" />
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+        <!-- Javascript Imports -->
+        <script type="text/javascript" src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="//golden-layout.com/files/latest/js/goldenlayout.min.js"></script>
+
+        <!-- JSON Editor -->
+        <script type="text/javascript" src="/static/js/jsoneditor.min.js"></script>
+
+        <!-- Note: The order of these headers affects the coloring of the depth feed. Don't change this!-->
+        <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+        <script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>
+
+        <style>
+            body .lm_content {
+              overflow: scroll;
+            }
+
+            tr:hover { background-color: #16242d; }
+            ::-webkit-scrollbar {
+                width: 0px;  /* remove scrollbar space */
+                height: 0px;
+                background: transparent;  /* optional: just make scrollbar invisible */
+            }
+
+            .nav-tabs>li {
+            }
+            .nav-tabs>li>a {
+                border-radius: 0px;
+                color: #ced2d5;
+            }
+            .nav-tabs {
+                border-bottom: 0px;
+            }
+            .nav-tabs>li.active>a {
+                color: #555;
+            }
+            .nav-tabs>li:hover>a {
+                color: #555;
+            }
+
+            #market_buy_tab>a {
+                border: 0px;
+            }
+            #market_buy_tab>a:hover {
+                color: #ced2d5;
+                background-color: #27ae60;
+                border: 0px;
+            }
+            #market_sell_tab>a {
+                border: 0px;
+            }
+            #market_sell_tab>a:hover {
+                color: black;
+                background-color: #c0392b;
+                border: 0px;
+            }
+
+            .messageCounter {
+                position: absolute;
+                right: -75px;
+                top: -0px;
+                color:#fff;
+                font-weight: bold;
+                z-index: 4;
+                padding: 2px 5px;
+            }
+            .tab-btn-first {
+                position: absolute;
+                right: -30px;
+                top: -0px;
+                font-weight: bold;
+                z-index: 4;
+                border-radius: 50px;
+            }
+            .smfont {
+                font-size: 10px;
+            }
+
+            /* overriding styling in the json editor */
+            .editor > div > h3 > span {
+                color: #fff;
+            }
+            h3 {
+                font-size: 14px;
+            }
+            h3 > div >.btn-default {
+                padding: 2px 8px;
+                font-size: 12px;
+                line-height: 1.5;
+                border-radius: 3px;
+            }
+
+        </style>
+    </head>
+    <body>
+
+    <style>
+        .line {
+          fill: none;
+          stroke: white;
+          stroke-width: 1.5px;
+        }
+
+.bar {
+  fill: #bdc3c7;
+}
+
+.bar:hover {
+  fill: steelblue;
+}
+
+    </style>
+    <script src="//d3js.org/d3.v4.min.js"></script>
+    <script>
+    </script>
+
+
+
+
+
+
+    </body>
+    <script>
+        // Utility Functions. Move to seperate js file
+        function getWidth() {
+            if (self.innerWidth) { return self.innerWidth; }
+            if (document.documentElement && document.documentElement.clientWidth) {
+                return document.documentElement.clientWidth;
+            }
+            if (document.body) { return document.body.clientWidth; }
+        }
+        function getHeight() {
+            if (self.innerHeight) { return self.innerHeight; }
+            if (document.documentElement && document.documentElement.clientHeight) {
+                return document.documentElement.clientHeight;
+            }
+            if (document.body) { return document.body.clientHeight; }
+        }
+
+        // Defines the initial layout of the Dashboard
+        var config = {
+            content: [{
+                type: 'row',
+                content: [
+                {
+                    type: 'component',
+                    componentName: 'aesop_strategy',
+                    componentState: { },
+                    title: 'Aesop Strategy'
+                }, {
+                    type: 'column',
+                    content: [{
+                        type: 'component',
+                        componentName: 'market_data',
+                        componentState: { },
+                        title: 'Graph'
+                    }, {
+                        type: 'component',
+                        componentName: 'dummy',
+                        componentState: { },
+                        title: 'Graph Three'
+                    },{
+                        type: 'row',
+                        content: [
+                        {
+                            type: 'component',
+                            componentName: 'dummy',
+                            componentState: { },
+                            title: 'Trades'
+                        }]
+                    }],
+                    width: 65
+                }]
+            }]
+        };
+
+        var goldenDash, savedState = localStorage.getItem('savedState');
+
+        // Try to retrieve dashboard from any saved state first
+        if( savedState !== null ) {
+            goldenDash = new GoldenLayout(JSON.parse(savedState));
+        } else {
+            goldenDash = new GoldenLayout(config );
+        }
+
+        var marketDataComponent = function(container, state) {
+            // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            container.getElement().append(
+                '<div style="background-color: #1e2b34">'+
+                '   <svg width="1200" height="300"></svg>'+
+                '</div>');
+
+
+            var mkt_price = 0;
+
+            function zero_gen(x) { return 0; }
+
+            function callback(historical) {
+                historical = JSON.parse(historical);
+                var n = historical.length
+                volume = []
+                data = [];
+                for (var i = historical.length - 1; i > 0; --i) {
+                    data.push(historical[i][3]);
+                    volume.push(historical[i][5]);
+                }
+
+                var min_volume = Math.min(...volume);
+                var max_volume = Math.max(...volume);
+                var min_value = Math.min(...data);
+                var max_value = Math.max(...data);
+                var padding = (max_value - min_value);
+                min_value = min_value - padding;
+                max_value = max_value + padding;
+
+                temp_volume = [];
+                console.log("aaa");
+                console.log(volume.length);
+                for(var i = 0; i < volume.length; ++i)
+                {
+                    temp_volume.push(volume[i]*((max_value-min_value)/(max_volume-min_volume)) + min_value);
+                }
+                volume = temp_volume;
+
+                mkt_price = data[data.length - 1];
+
+                var svg = d3.select("svg"),
+                    margin = {top: 20, right: 20, bottom: 20, left: 40},
+                    width = +svg.attr("width") - margin.left - margin.right,
+                    height = +svg.attr("height") - margin.top - margin.bottom,
+                    g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+                var x = d3.scaleLinear().domain([0, n - 1]).range([0, width]);
+                var y = d3.scaleLinear().domain([min_value, max_value]).range([height, 0]);
+                var line = d3.line().x(function(d, i) { return x(i); })
+                                    .y(function(d, i) { return y(d); });
+
+                g.append("defs").append("clipPath")
+                    .attr("id", "clip")
+                  .append("rect")
+                    .attr("width", width)
+                    .attr("height", height);
+                g.append("g")
+                    .attr("class", "axis axis--x")
+                    .attr("transform", "translate(0," + y(min_value) + ")")
+                    .call(d3.axisBottom(x));
+                g.append("g")
+                    .attr("class", "axis axis--y")
+                    .call(d3.axisLeft(y));
+                g.append("g")
+                    .attr("clip-path", "url(#clip)")
+                  .append("path")
+                    .datum(data)
+                    .attr("class", "line")
+                  .transition()
+                    .duration(60000)
+                    .ease(d3.easeLinear)
+                    .on("start", tick);
+
+                g.append("g")
+                    .attr("clip-path", "url(#clip)")
+                  .append("path")
+                    .datum(volume)
+                    .attr("class", "line")
+                  .transition()
+                    .duration(600)
+                    .ease(d3.easeLinear)
+                    .on("start", tick_volume);
+
+
+
+                function tick() {
+                  // Push a new data point onto the back.
+                  data.push(mkt_price);
+                  // Redraw the line.
+
+                  d3.select(this)
+                      .attr("d", line)
+                      .attr("transform", null);
+                  // Slide it to the left.
+
+                  d3.active(this)
+                      .attr("transform", "translate(" + x(-1) + ",0)")
+                    .transition()
+                      .on("start", tick);
+                  // Pop the old data point off the front.
+                  data.shift();
+                }
+
+                function tick_volume() {
+                  // Push a new data point onto the back.
+                  volume.push(volume[0]);
+                  // Redraw the line.
+
+                  d3.select(this)
+                      .attr("d", line)
+                      .attr("transform", null);
+                  // Slide it to the left.
+
+                  d3.active(this)
+                      .attr("transform", "translate(" + x(-1) + ",0)")
+                    .transition()
+                      .on("start", tick_volume);
+                  // Pop the old data point off the front.
+                  volume.shift();
+                }
+
+
+
+            }
+            function connect() {
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8001"+'/ws';
+
+                ws = new WebSocket(webSocketUri);
+                ws.onopen = function () { };
+                ws.onmessage = function (e) {
+                                   try {
+                                       var data = JSON.parse(e.data);
+
+                                       book = data.book_update.book;
+                                       bid_price = parseFloat(book.bids[0].price);
+                                       ask_price = parseFloat(book.asks[0].price);
+                                       bid_qty = parseFloat(book.bids[0].qty);
+                                       ask_qty = parseFloat(book.asks[0].qty);
+
+                                       mkt_price = (bid_price*ask_qty + ask_price*bid_qty)/(bid_qty+ask_qty);
+                                   }
+                                   catch (e) {};
+                               };
+                ws.onclose = function () { set_conn_status(false); setTimeout(function() { connect(); }, 5000); };
+            };
+
+            function get_historical_data()
+            {
+                var xmlHttp = new XMLHttpRequest();
+                xmlHttp.onreadystatechange = function() {
+                    if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+                        callback(xmlHttp.responseText);
+                        connect();
+                }
+                xmlHttp.open("GET", 'https://api.gdax.com/products/ETH-USD/candles', true); // true for asynchronous
+                xmlHttp.send(null);
+            }
+
+            get_historical_data();
+            //connect();
+
+
+        };
+
+        var aesopStrategyComponent = function(container, state) {
+            // Check for local storage
+            if (!typeof window.localStorage) {
+                return;
+            }
+
+            container.getElement().append(
+                '<div class="row" style="padding-left: 15px; padding-right: 15px; background-color: #1e2b34; font-size: 10px; font-family: opensans, sans-serif; -webkit-font-smoothing: antialiasing;">'+
+                '    <div class="col-md-12" style="padding: 0px">'+
+                '        <div class="row" style="padding: 0px; margin: 0px">'+
+                '             <div class="container" style="width: 650px">'+
+                '                 <div class="editor" id="aesop_strategy_comm_view"> </div>'+
+                '                 <div class="editor" id="aesop_strategy_state_view"> </div>'+
+                '                 <div class="editor" id="aesop_strategy_params_editor"> </div>'+
+                '                 <form class="form-horizontal" style="padding: 0px; margin: 0px;">'+
+                '                     <div class="form-inline" style="padding: 0px; margin: 0px;">'+
+                '                         <div class="col-md-3" style="padding: 5px; margin: 0px;"><a type="button" id="update_aesop_params" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-default">Update Strategy</a> </div>'+
+                '                         <div class="col-md-3" style="padding: 5px; margin: 0px;"> <a type="button" id="fetch_aesop_params" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-primary">Fetch Params</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="start_aesop_strategy" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-success">Start Strategy</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="stop_aesop_strategy" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-danger">Stop Strategy</a></div>'+
+                '                         <div class="col-md-2" style="padding: 5px; margin: 0px;"> <a type="button" id="reset_aesop_strategy_reference" style="margin-top: 10px;"  class="btn btn-sm btn-block btn-info">Reset PnL</a></div>'+
+                '                     </div>'+
+                '                 </form>'+
+                '             </div>'+
+
+                '        </div>'+
+                '    </div>'+
+                '</div>'
+            );
+
+            var onStratConfig =
+                function (actions) {
+                    console.log(actions);
+                };
+
+
+            goldenDash.eventHub.on('aesop_configuration', onStratConfig);
+
+            // Add button handlers
+            var addStrategyParamsHandler =
+                function (editor) {
+                    $('#update_aesop_params').on('click',
+                        function(e) {
+                            var message = {};
+                            message['config'] = editor.getValue();
+                            goldenDash.eventHub.emit('to_aesop_strategy', JSON.stringify(message));
+                        }
+                    );
+                    $('#fetch_aesop_params').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_aesop_strategy", '{"admin": "GetConfig"}');
+                        }
+                    );
+                    $('#start_aesop_strategy').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_aesop_strategy", '{"admin": "StartStrategy"}');
+                        }
+                    );
+                    $('#stop_aesop_strategy').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_aesop_strategy", '{"admin": "StopStrategy"}');
+                        }
+                    );
+                    $('#reset_aesop_strategy_reference').on('click',
+                        function(e) {
+                            goldenDash.eventHub.emit("to_aesop_strategy", '{"admin": "ResetPnLReference"}');
+                        }
+                    );
+                };
+
+            var addJsonEditor =
+                function () {
+                    var strategy_comm_startval = {
+                        "mkt_price": 0.00,
+                        "strategy": 0.00,
+                        "starting": 0.00,
+                        "cash": 0.0,
+                        "crypto": 0.00,
+                        "portfolio": 0.00,
+                        "state": "#ecf0f1",
+                        "net": 0.00,
+                        "quote": 0.00,
+                        "base": 0,
+                        "num_traded": 0,
+                        "traded_qty": 0,
+                        "instrument": "---"
+                    };
+                    var aesop_strategy_comm_element = document.getElementById('aesop_strategy_comm_view');
+                    var strategy_comm_options =
+                            {
+                                  schema: {
+                                      format: "grid",
+                                      title: "Common State",
+                                      type: "object",
+                                      properties: {
+                                          mkt_price: { "title": "Mkt Price", "type": "number", "propertyOrder": 6},
+                                          strategy: { "title": "Strategy", "type": "number", "propertyOrder": 1},
+                                          starting: { "title": "Starting", "type": "number", "propertyOrder": 2},
+                                          cash: { "title": "If 100% Cash", "type": "number", "propertyOrder": 3},
+                                          crypto: { "title": "If 100% Crypto", "type": "number", "propertyOrder": 4},
+                                          portfolio: { "title": "Portfolio Value", "type": "number", "propertyOrder": 5},
+                                          state: {"title": "State", "type": "string", "format": "color", "propertyOrder": 7},
+                                          net: { "title": "Net PnL", "type": "number", "propertyOrder": 8},
+                                          quote: { "title": "USD", "type": "number", "propertyOrder": 9},
+                                          base: { "title": "Crypto", "type": "number", "propertyOrder": 10},
+                                          num_traded: { "title": "Num Trades", "type": "number", "propertyOrder": 11},
+                                          traded_qty: { "title": "Traded Qty", "type": "number", "propertyOrder": 12},
+                                          instrument: { "title": "Instrument", "type": "string", "propertyOrder": 13}
+                                      }
+                                  },
+                                 theme: "bootstrap3",
+                                 iconlib: "bootstrap3",
+                                 startval: strategy_comm_startval,
+                                 disable_collapse: true,
+                                 disable_properties: true,
+                                 disable_array_reorder: true,
+                                 disable_array_add: true,
+                                 disable_array_delete: true,
+                                 disable_array_delete_all_rows: true,
+                                 disable_array_delete_last_row: true,
+                                 display_required_only: true,
+                                 form_name_root: "Aesop State"
+                             };
+
+
+                    var strategy_comm = new JSONEditor(aesop_strategy_comm_element, strategy_comm_options);
+                    strategy_comm.disable();
+
+
+                    var strategy_state_startval = {
+                        "fast_ema": 0,
+                        "slow_ema": 0,
+                        "action": "#2980b9",
+                        "message": "..."
+                    };
+                    var aesop_strategy_state_element = document.getElementById('aesop_strategy_state_view');
+                    var strategy_state_options =
+                            {
+                                  schema: {
+                                      format: "grid",
+                                      title: "Strategy State",
+                                      type: "object",
+                                      properties: {
+                                          slow_ema: { "title": "Slow EMA", "type": "number", "propertyOrder": 1 },
+                                          fast_ema: { "title": "Fast EMA", "type": "number", "propertyOrder": 2 },
+                                          action: { "title": "Action", "type": "string", "format": "color", "propertyOrder": 3 },
+                                          message: { "title": "Message", "type": "string", "propertyOrder": 4 }
+                                      }
+                                  },
+                                 theme: "bootstrap3",
+                                 iconlib: "bootstrap3",
+                                 startval: strategy_state_startval,
+                                 disable_collapse: true,
+                                 disable_properties: true,
+                                 disable_array_reorder: true,
+                                 disable_array_add: true,
+                                 disable_array_delete: true,
+                                 disable_array_delete_all_rows: true,
+                                 disable_array_delete_last_row: true,
+                                 display_required_only: true,
+                                 form_name_root: "Aesop State"
+                             };
+
+
+                    var strategy_state = new JSONEditor(aesop_strategy_state_element, strategy_state_options);
+                    strategy_state.disable();
+
+
+
+                    var strategy_params_startval = {
+                        "low": 0,
+                        "high": 0,
+                        "orders": 0,
+                        "show": 0,
+                        "slack": 0,
+                        "md_refresh": 0,
+                        "state_refresh": 0,
+                        "change_crypto": 0,
+                        "change_cash": 0,
+                        "last_update": "Strategy not connected..."
+                    };
+
+                    var aesop_strategy_params_element = document.getElementById('aesop_strategy_params_editor');
+                    var strategy_params_options =
+                            {
+                                  schema: {
+                                      format: "grid",
+                                      title: "Parameters",
+                                      type: "object",
+                                      properties: {
+                                          md_refresh: {"title": "MD Refresh", "type": "number", "propertyOrder": 5},
+                                          state_refresh: {"title": "State Refresh", "type": "number", "propertyOrder": 6},
+                                          change_crypto: {"title": "+/- Crypto", "type": "number", "propertyOrder": 8},
+                                          change_cash: {"title": "+/- Cash", "type": "number", "propertyOrder": 9},
+                                          last_update: { "title": "Last Updated", "type": "string", "propertyOrder": 10},
+                                          fast: { "title": "Fast (0.1s)", "type": "number", "propertyOrder": 11},
+                                          slow: { "title": "Slow (0.1s)", "type": "number", "propertyOrder": 12}
+
+                                      }
+                                  },
+                                 theme: "bootstrap3",
+                                 iconlib: "bootstrap3",
+                                 startval: strategy_params_startval,
+                                 disable_collapse: true,
+                                 disable_properties: true,
+                                 disable_array_reorder: true,
+                                 disable_array_add: true,
+                                 disable_array_delete: true,
+                                 disable_array_delete_all_rows: true,
+                                 disable_array_delete_last_row: true,
+                                 display_required_only: true,
+                                 form_name_root: "Aesop Params"
+                             };
+
+                    var strategy_params = new JSONEditor(aesop_strategy_params_element, strategy_params_options);
+
+                    function beep() {
+                        var snd = new Audio("data:audio/wav;base64,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qJrx4KOQjahZxWbcZgztj2c49nKmkId44S71j0c8eV9yDK6uPRzx5X18eDvjvQ6yKo9ZSS6l//8elePK/Lf//IInrOF/FvDoADYAGBMGb7FtErm5MXMlmPAJQVgWta7Zx2go+8xJ0UiCb8LHHdftWyLJE0QIAIsI+UbXu67dZMjmgDGCGl1H+vpF4NSDckSIkk7Vd+sxEhBQMRU8j/12UIRhzSaUdQ+rQU5kGeFxm+hb1oh6pWWmv3uvmReDl0UnvtapVaIzo1jZbf/pD6ElLqSX+rUmOQNpJFa/r+sa4e/pBlAABoAAAAA3CUgShLdGIxsY7AUABPRrgCABdDuQ5GC7DqPQCgbbJUAoRSUj+NIEig0YfyWUho1VBBBA//uQZB4ABZx5zfMakeAAAAmwAAAAF5F3P0w9GtAAACfAAAAAwLhMDmAYWMgVEG1U0FIGCBgXBXAtfMH10000EEEEEECUBYln03TTTdNBDZopopYvrTTdNa325mImNg3TTPV9q3pmY0xoO6bv3r00y+IDGid/9aaaZTGMuj9mpu9Mpio1dXrr5HERTZSmqU36A3CumzN/9Robv/Xx4v9ijkSRSNLQhAWumap82WRSBUqXStV/YcS+XVLnSS+WLDroqArFkMEsAS+eWmrUzrO0oEmE40RlMZ5+ODIkAyKAGUwZ3mVKmcamcJnMW26MRPgUw6j+LkhyHGVGYjSUUKNpuJUQoOIAyDvEyG8S5yfK6dhZc0Tx1KI/gviKL6qvvFs1+bWtaz58uUNnryq6kt5RzOCkPWlVqVX2a/EEBUdU1KrXLf40GoiiFXK///qpoiDXrOgqDR38JB0bw7SoL+ZB9o1RCkQjQ2CBYZKd/+VJxZRRZlqSkKiws0WFxUyCwsKiMy7hUVFhIaCrNQsKkTIsLivwKKigsj8XYlwt/WKi2N4d//uQRCSAAjURNIHpMZBGYiaQPSYyAAABLAAAAAAAACWAAAAApUF/Mg+0aohSIRobBAsMlO//Kk4soosy1JSFRYWaLC4qZBYWFRGZdwqKiwkNBVmoWFSJkWFxX4FFRQWR+LsS4W/rFRb/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////VEFHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU291bmRib3kuZGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMjAwNGh0dHA6Ly93d3cuc291bmRib3kuZGUAAAAAAAAAACU=");
+                        snd.play();
+                    }
+
+                        var onMessage =
+                        function(data) {
+                            try {
+                                if (data.hasOwnProperty('update')) {
+                                    switch(data.update.type) {
+                                        case 'PnL':
+                                            var value = strategy_comm.getValue();
+                                            if (value.num_traded < JSON.parse(data.update.msg).num_traded) {
+                                                beep();
+                                            }
+
+                                            strategy_comm.setValue(JSON.parse(data.update.msg));
+                                            break;
+                                        case 'Parameters':
+                                            strategy_params.setValue(JSON.parse(data.update.msg));
+                                            break;
+                                        case 'StrategyState':
+                                            strategy_state.setValue(JSON.parse(data.update.msg));
+                                            break;
+                                    }
+                                } else {
+                                    console.log("Unhandled message "+data);
+                                }
+                            } catch (err) {
+                                console.log(msg);
+                                console.log(err);
+                            }
+                        };
+
+                    goldenDash.eventHub.on("from_aesop_strategy", onMessage);
+                    goldenDash.eventHub.emit("to_aesop_strategy", '{"admin": "GetConfig"}');
+                    setTimeout(function() { addStrategyParamsHandler(strategy_params); }, 100);
+                };
+
+            setTimeout(addJsonEditor, 100);
+        };
+
+        goldenDash.registerComponent('aesop_strategy', aesopStrategyComponent);
+        goldenDash.registerComponent('market_data', marketDataComponent);
+        goldenDash.registerComponent('dummy', function(container, state) {});
+        goldenDash.init();
+
+        // Data Emitters:
+        var aesopStrategyConnect =
+            function() {
+                var webSocketUri = (window.location.protocol=='https:'&&'wss://'||'ws://')+"0.0.0.0:8010"+'/ws';
+                console.log(webSocketUri);
+                var ws = new WebSocket(webSocketUri);
+
+                ws.onopen = function () {
+                    ws.send('{"admin": "GetConfig"}');
+                    goldenDash.eventHub.emit('socket_open', 'AesopStrategy');
+                };
+
+                ws.onmessage = function (msg) {
+                    try {
+                        var data = JSON.parse(msg.data);
+                        goldenDash.eventHub.emit('from_aesop_strategy', data);
+                    }
+                    catch (err) {
+                        console.log(err);
+                    };
+                };
+
+                ws.onclose =
+                    function () {
+                        // ToDo: Make use of this broadcast
+                        goldenDash.eventHub.emit('socket_closed', 'AesopStrategy');
+
+                        console.log("AesopStrategy Closed!");
+                        setTimeout(
+                            function() {
+                                aesopStrategyConnect();
+                            }, 5000);
+                    };
+
+                var onMessageToAesopStrategy =
+                    function (message) {
+                        console.log("sending message");
+                        ws.send(message);
+                    };
+
+                goldenDash.eventHub.on('to_aesop_strategy', onMessageToAesopStrategy);
+            };
+
+        aesopStrategyConnect();
+
+    </script>
+</html>

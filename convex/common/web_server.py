@@ -30,6 +30,7 @@ class WebServer:
             await ws.send_str(data)
 
     async def socket_handler(self, request):
+        print("{}".format(request))
         ws = aiohttp.web.WebSocketResponse()
         ok, protocol = ws.can_prepare(request)
         if not ok:

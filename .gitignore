@@ -85,6 +85,11 @@ celerybeat-schedule
 venv/
 ENV/
 
+# Generated files
+data/
+logs/
+recorder/
+
 # Spyder project settings
 .spyderproject
 
@@ -100,3 +105,8 @@ ENV/
 # Swap files
 .*.swp
 .*.swo
+
+# Misc app files
+data/
+logs/
+recorder/

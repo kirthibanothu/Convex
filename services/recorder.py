@@ -199,7 +199,8 @@ def main(args):
 
 
 if __name__ == '__main__':
-    with logbook.FileHandler('recorder.log',
-                             level=logbook.INFO).applicationbound():
+    with logbook.FileHandler(
+            'logs/recorder_{:%Y%m%d_%H:%M:%S}.log'.format(dt.datetime.today()),
+            level=logbook.INFO).applicationbound():
         args = docopt.docopt(__doc__)
         main(args)
