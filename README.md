@@ -1,6 +1,9 @@
 # Convex
 Cryptocurrency Trading System
 
+### Caution: ###
+**Use at *your own* risk. Please take the time to familiarize yourself with the codebase. There may be bugs or issues - some things may not work as intended or have unintended side effects. *This is no longer under active development*.**
+
 ### What it offers:
 - Enabled automated trading
 - Offers backtesting facilities
