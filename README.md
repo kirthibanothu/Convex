@@ -1,5 +1,20 @@
 # Convex
-Bitcoin Trading System
+Cryptocurrency Trading System
+
+### What it offers:
+- Enabled automated trading
+- Offers backtesting facilities
+    - Can capture market data by utilizing the [recorder utility](https://github.com/kirthibanothu/Convex/blob/master/services/recorder.py)
+- Provides click trading application along with associated GUI
+- Includes sample strategy code with order management and dashboard development
+    - Examples:
+        - [Anchor](https://github.com/kirthibanothu/Convex/blob/master/services/anchor/)
+        - [Aesop](https://github.com/kirthibanothu/Convex/tree/master/services/aesop)
+        - [Click Trader](https://github.com/kirthibanothu/Convex/blob/master/services/click_trader.py)
+- Offers (smart market data dispatching services](https://github.com/kirthibanothu/Convex/blob/master/services/smart_md.py)
+- Currently only supports the following exchanges: GDAX (Coinbase)
+
+- [Sample setup](https://github.com/kirthibanothu/Convex/blob/master/autodev.sh): starts up a tmux session with sample applications ready to go
 
 # Setup
 Git Clone:
@@ -37,8 +52,12 @@ Tests can be ran by running `py.test` in the top level module.
         - To launch the services that it needs:
             - ./services/depth_feed.py
             - ./services/click_trader.py <API_KEY> <API_SECRET> <PASSPHRASE> 0.0.0.0 8003
+        - Most apps are self explanatory - check config section
     Using Autodev
         - ./autodev.sh /path/to/repo/ API_KEY API_SECRET PASSPHRASE IN_DEV INSTRUMENT
 
 Limitations:
     - Most of the configuration for the GUI's are hard coded as of right now. Need to make this configurable in some intelligible way.
+
+### UI Sample:
+![UI](https://github.com/kirthibanothu/Convex/blob/master/Progress/GUI/Dashboard%20-%202017-09-21%2023-22-10.png)
